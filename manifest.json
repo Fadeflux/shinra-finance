@@ -1,0 +1,13 @@
+{
+  "name": "Shinra Finance",
+  "short_name": "Shinra",
+  "description": "CRM Finance Agence OnlyFans",
+  "start_url": "/crm-agency-frontend/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    { "src": "https://fakeimg.pl/192x192/0a0a0a/4ade80?text=S&font_size=100", "sizes": "192x192", "type": "image/png" },
+    { "src": "https://fakeimg.pl/512x512/0a0a0a/4ade80?text=S&font_size=250", "sizes": "512x512", "type": "image/png" }
+  ]
+}
