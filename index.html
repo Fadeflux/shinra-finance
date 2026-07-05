@@ -310,6 +310,24 @@ body.light [style*="color:#fff"],body.light [style*="color:#eee"],body.light [st
 body.light [style*="color:#facc15"]{color:#a16207!important}
 body.light [style*="color:#22d3ee"]{color:#0891b2!important}
 body.light [style*="background:#0a0a0a"],body.light [style*="background:#0e0e0e"],body.light [style*="background:#111"],body.light [style*="background:#141414"],body.light [style*="background:#1a1a1a"],body.light [style*="background:#1e1e1e"]{background:#f4f5f6!important}
+/* ── Barre latérale (style dashboards Shinra) ── */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:86px;background:#0b0b0d;border-right:1px solid #1a1a1a;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 9px;z-index:200;overflow-y:auto}
+.side-logo{width:42px;height:42px;border-radius:12px;background:var(--acc);color:var(--acc-ink);display:flex;align-items:center;justify-content:center;font-size:21px;margin-bottom:6px;flex-shrink:0}
+.sidebar .tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;width:100%;padding:11px 3px;border-radius:13px;background:transparent;border:1px solid transparent;color:#666;font-size:9.5px;font-weight:500;transition:all .15s;flex-shrink:0;text-align:center;line-height:1.15}
+.sidebar .tab svg{width:19px;height:19px;opacity:1;flex-shrink:0}
+.sidebar .tab:hover{background:#151517;color:#a5a5a5}
+.sidebar .tab.active{background:#101a12;border-color:var(--acc);color:var(--acc);box-shadow:0 0 13px rgba(74,222,128,.25)}
+body{padding-left:106px}
+body.light .sidebar{background:#fff;border-right-color:#e5e5e5}
+body.light .sidebar .tab{color:#888}
+body.light .sidebar .tab:hover{background:#f0f0f0;color:#333}
+body.light .sidebar .tab.active{background:#eaf7ef;color:var(--acc)}
+@media(max-width:768px){
+  body{padding-left:10px}
+  .sidebar{position:static;flex-direction:row;width:auto;height:auto;bottom:auto;border-right:none;border-bottom:1px solid #1a1a1a;border-radius:12px;padding:8px;gap:5px;overflow-x:auto;overflow-y:hidden;margin-bottom:12px}
+  .side-logo{width:34px;height:34px;font-size:17px;margin-bottom:0;margin-right:4px}
+  .sidebar .tab{flex-direction:row;width:auto;padding:8px 12px;font-size:11px;gap:6px;white-space:nowrap}
+}
 </style>
 </head>
 <body>
@@ -364,15 +382,16 @@ body.light [style*="background:#0a0a0a"],body.light [style*="background:#0e0e0e"
     <div id="gsearch-results"><div style="font-size:12px;color:#444;text-align:center;padding:16px">Tape pour chercher...</div></div>
   </div>
 </div>
+<nav class="sidebar" id="sidebar">
+  <div class="side-logo">⚡</div>
+  <button class="tab active" onclick="sw('ca',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 4-6"/></svg><span>Dashboard</span></button>
+  <button class="tab" onclick="sw('va',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M17 8h4M19 6v4"/></svg><span>VA</span></button>
+  <button class="tab" onclick="sw('modeles',this);renderModeles()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg><span>Modèles</span></button>
+  <button class="tab" onclick="sw('recap',this);renderRecap()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span>Récap</span></button>
+  <button class="tab" onclick="sw('editlog',this);renderEditLog()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg><span>Historique</span></button>
+</nav>
 <div class="dash">
-<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
-  <div class="tabs" style="margin-bottom:0">
-    <button class="tab active" onclick="sw('ca',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 4-6"/></svg>Dashboard CA</button>
-    <button class="tab" onclick="sw('va',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M17 8h4M19 6v4"/></svg>Gestion des VA</button>
-    <button class="tab" onclick="sw('modeles',this);renderModeles()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Modèles</button>
-    <button class="tab" onclick="sw('recap',this);renderRecap()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Récap mensuel</button>
-    <button class="tab" onclick="sw('editlog',this);renderEditLog()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>Historique</button>
-  </div>
+<div style="display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
   <div style="display:flex;align-items:center;gap:7px">
     <span id="api-dot" title="API déconnectée"></span>
     <span id="save-status" style="font-size:11px;color:#4ade80;opacity:0;transition:opacity .5s"></span>
