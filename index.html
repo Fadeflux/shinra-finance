@@ -15,7 +15,7 @@
 :root{--acc:#4ade80;--acc-ink:#08240f;--acc-hover:#3dc970}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#0a0a0a;font-family:'Inter',system-ui,-apple-system,sans-serif;padding:20px;min-height:100vh;-webkit-font-smoothing:antialiased}
-.dash{background:#0e0e0e;border-radius:12px;padding:26px 28px;color:#fff;max-width:1480px;margin:0 auto;border:1px solid #1a1a1a}
+.dash{background:transparent;border-radius:12px;padding:20px 8px 30px;color:#fff;max-width:1480px;margin:0 auto;border:none}
 .tabs{display:flex;gap:2px;margin-bottom:24px;flex-wrap:wrap;background:#141414;padding:4px;border-radius:9px;width:fit-content}
 .tab{display:inline-flex;align-items:center;gap:6px;background:transparent;border:none;border-radius:6px;padding:7px 14px;color:#555;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;letter-spacing:-.01em}
 .tab svg{width:14px;height:14px;flex-shrink:0;opacity:.85}
@@ -235,7 +235,7 @@ select.ifield{cursor:pointer}
 .recap-table tr:hover td{background:#111}
 /* Light mode */
 body.light{background:#f0f0f0}
-body.light .dash{background:#fafafa;border-color:#e0e0e0;color:#111}
+body.light .dash{background:transparent;border:none;color:#111}
 body.light .panel,.light .kpi{background:#fff;border-color:#e5e5e5}
 body.light .kpi:hover{background:#f5f5f5}
 body.light .kpi-value{color:#111}
@@ -322,6 +322,11 @@ body.light .sidebar{background:#fafafa;border-right-color:#e5e5e5}
 body.light .sidebar .tab{background:#fff;border-color:#e5e5e5;color:#666}
 body.light .sidebar .tab:hover{background:#f0f0f0;color:#222}
 body.light .sidebar .tab.active{background:#eaf7ef;color:var(--acc)}
+.icon-btn{width:34px;height:34px;border-radius:9px;background:#161619;border:1px solid #26262c;display:inline-flex;align-items:center;justify-content:center;color:#9a9aa0;cursor:pointer;transition:all .15s;padding:0;flex-shrink:0}
+.icon-btn:hover{border-color:#3a3a42;color:#e6e6e8;background:#1c1c20}
+.icon-btn svg{width:16px;height:16px}
+body.light .icon-btn{background:#f2f2f2;border-color:#e0e0e0;color:#666}
+body.light .icon-btn:hover{background:#e8e8e8;color:#222}
 @media(max-width:768px){
   body{padding-left:10px}
   .sidebar{position:static;flex-direction:row;width:auto;height:auto;bottom:auto;border-right:none;border-bottom:1px solid #1a1a1a;border-radius:14px;padding:9px;gap:7px;overflow-x:auto;overflow-y:hidden;margin-bottom:12px}
@@ -407,11 +412,11 @@ body.light .sidebar .tab.active{background:#eaf7ef;color:var(--acc)}
         <label>⬆ Importer JSON<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
       </div>
     </div>
-    <button onclick="openGSearch()" title="Recherche globale (Ctrl+Shift+F)" style="background:transparent;border:0.5px solid #222;border-radius:7px;padding:5px 12px;color:#444;font-size:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px" onmouseover="this.style.borderColor='#444';this.style.color='#888'" onmouseout="this.style.borderColor='#222';this.style.color='#444'">🔍</button>
-    <button onclick="openQuickAdd()" title="Ajout rapide (Ctrl+K)" style="background:#1a1a2a;border:0.5px solid #2a3a5a;border-radius:7px;padding:5px 12px;color:#60a5fa;font-size:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px" onmouseover="this.style.background='#1e2035'" onmouseout="this.style.background='#1a1a2a'">⚡</button>
-    <button onclick="toggleTheme()" id="theme-btn" style="background:transparent;border:0.5px solid #222;border-radius:7px;padding:5px 9px;color:#444;font-size:12px;cursor:pointer;transition:all .15s" title="Changer thème" onmouseover="this.style.borderColor='#444';this.style.color='#888'" onmouseout="this.style.borderColor='#222';this.style.color='#444'">🌙</button>
+    <button onclick="openGSearch()" class="icon-btn" title="Recherche globale (Ctrl+Shift+F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button>
+    <button onclick="openQuickAdd()" class="icon-btn" title="Ajout rapide (Ctrl+K)" style="color:var(--acc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button onclick="toggleTheme()" id="theme-btn" class="icon-btn" title="Changer thème" style="font-size:15px">🌙</button>
     <div id="role-badge" style="display:none;font-size:10px;padding:3px 8px;border-radius:5px;font-weight:600"></div>
-    <button onclick="doLogout()" style="background:transparent;border:0.5px solid #222;border-radius:7px;padding:5px 9px;color:#444;font-size:12px;cursor:pointer;transition:all .15s" title="Déconnexion" onmouseover="this.style.borderColor='#444';this.style.color='#888'" onmouseout="this.style.borderColor='#222';this.style.color='#444'">⏻</button>
+    <button onclick="doLogout()" class="icon-btn" title="Déconnexion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg></button>
   </div>
 </div>
 
@@ -444,12 +449,12 @@ body.light .sidebar .tab.active{background:#eaf7ef;color:var(--acc)}
   </div>
   <div class="kpi-sec">Dépenses &amp; commission</div>
   <div class="kpi-dep-grid">
-    <div class="kpi" style="border-top-color:#f87171"><div class="kpi-label"><span class="tip">Commission<i class="tip-icon">i</i><span class="tip-box">OnlyFans prélève 20% + Skrill 2% = 22% du CA brut</span></span></div><div class="kpi-value" style="color:#f87171" id="vof">—</div><div class="kpi-pct">−22% du CA</div></div>
-    <div class="kpi" style="border-top-color:#facc15"><div class="kpi-label"><span class="tip">VA<i class="tip-icon">i</i><span class="tip-box">Paiements versés aux Virtual Assistants</span></span></div><div class="kpi-value" style="color:#facc15" id="vva">—</div><div class="kpi-pct" id="pva">–</div></div>
-    <div class="kpi" style="border-top-color:#a78bfa"><div class="kpi-label"><span class="tip">Modèle<i class="tip-icon">i</i><span class="tip-box">Paiements versés au/à la modèle</span></span></div><div class="kpi-value" style="color:#a78bfa" id="vmo">—</div><div class="kpi-pct" id="pmo">–</div></div>
-    <div class="kpi" style="border-top-color:#22d3ee"><div class="kpi-label"><span class="tip">Chat IA<i class="tip-icon">i</i><span class="tip-box">Coût du chatting automatisé par IA</span></span></div><div class="kpi-value" style="color:#22d3ee" id="vci">—</div><div class="kpi-pct" id="pci">–</div></div>
-    <div class="kpi" style="border-top-color:#fb923c"><div class="kpi-label"><span class="tip">Chat Humain<i class="tip-icon">i</i><span class="tip-box">Coût du chatting réalisé par des humains</span></span></div><div class="kpi-value" style="color:#fb923c" id="vch">—</div><div class="kpi-pct" id="pch">–</div></div>
-    <div class="kpi" style="border-top-color:#e879f9"><div class="kpi-label"><span class="tip">Dép. diverses<i class="tip-icon">i</i><span class="tip-box">Dépenses ponctuelles (pub, outils, etc.)</span></span></div><div class="kpi-value" style="color:#e879f9" id="val">—</div><div class="kpi-pct" id="pal">–</div></div>
+    <div class="kpi" style="border-top-color:#f87171"><div class="kpi-label"><span class="tip">Commission<i class="tip-icon">i</i><span class="tip-box">OnlyFans prélève 20% + Skrill 2% = 22% du CA brut</span></span></div><div class="kpi-value" style="color:#eee" id="vof">—</div><div class="kpi-pct">−22% du CA</div></div>
+    <div class="kpi" style="border-top-color:#facc15"><div class="kpi-label"><span class="tip">VA<i class="tip-icon">i</i><span class="tip-box">Paiements versés aux Virtual Assistants</span></span></div><div class="kpi-value" style="color:#eee" id="vva">—</div><div class="kpi-pct" id="pva">–</div></div>
+    <div class="kpi" style="border-top-color:#a78bfa"><div class="kpi-label"><span class="tip">Modèle<i class="tip-icon">i</i><span class="tip-box">Paiements versés au/à la modèle</span></span></div><div class="kpi-value" style="color:#eee" id="vmo">—</div><div class="kpi-pct" id="pmo">–</div></div>
+    <div class="kpi" style="border-top-color:#22d3ee"><div class="kpi-label"><span class="tip">Chat IA<i class="tip-icon">i</i><span class="tip-box">Coût du chatting automatisé par IA</span></span></div><div class="kpi-value" style="color:#eee" id="vci">—</div><div class="kpi-pct" id="pci">–</div></div>
+    <div class="kpi" style="border-top-color:#fb923c"><div class="kpi-label"><span class="tip">Chat Humain<i class="tip-icon">i</i><span class="tip-box">Coût du chatting réalisé par des humains</span></span></div><div class="kpi-value" style="color:#eee" id="vch">—</div><div class="kpi-pct" id="pch">–</div></div>
+    <div class="kpi" style="border-top-color:#e879f9"><div class="kpi-label"><span class="tip">Dép. diverses<i class="tip-icon">i</i><span class="tip-box">Dépenses ponctuelles (pub, outils, etc.)</span></span></div><div class="kpi-value" style="color:#eee" id="val">—</div><div class="kpi-pct" id="pal">–</div></div>
     <div class="kpi" style="border-top-color:#f87171"><div class="kpi-label"><span class="tip">Dép. totales<i class="tip-icon">i</i><span class="tip-box">VA + Modèle + Chat IA + Chat Humain + Aléatoires</span></span></div><div class="kpi-value" style="color:#f87171" id="vdep">—</div><span class="kpi-delta" id="dvdep" title="vs période précédente"></span><div class="kpi-pct" id="pdep">–</div></div>
   </div>
 
