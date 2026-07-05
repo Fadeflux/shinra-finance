@@ -44,6 +44,8 @@ input[type=date].active{border-color:var(--acc);color:var(--acc)}
 .kpi-dep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:8px;margin-bottom:16px}
 .kpi-dep-grid .kpi{min-height:78px;padding:12px 13px}
 .kpi-dep-grid .kpi-value{font-size:16px}
+.kpi-hero-grid .kpi:not(.kpi-hero),.kpi-dep-grid .kpi{border-color:#242428;border-top-color:#242428!important}
+.kpi-ico{width:14px;height:14px;flex-shrink:0;opacity:.7}
 @media(max-width:640px){
   .kpi-hero-grid{grid-template-columns:1fr 1fr;gap:8px}
   .kpi-hero-grid .kpi.kpi-hero{grid-column:1/-1}
@@ -55,7 +57,7 @@ input[type=date].active{border-color:var(--acc);color:var(--acc)}
 .kpi-dot{display:none}
 .kpi-value{font-size:20px;font-weight:700;letter-spacing:-.03em;margin-top:auto}
 .kpi-pct{font-size:10px;color:#3a3a3a;margin-top:4px;letter-spacing:-.01em}
-.kpi-delta{font-size:10px;font-weight:600;margin-top:4px;display:none;align-items:center;gap:3px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.kpi-delta{font-size:10px;font-weight:600;margin-top:6px;display:none;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .panel{background:#111;border-radius:8px;padding:16px;border:1px solid #1a1a1a;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .panel-title{font-size:13px;font-weight:500;color:#ccc;margin-bottom:3px}
 .panel-sub{font-size:11px;color:#555;margin-bottom:12px}
@@ -415,9 +417,9 @@ body.light [style*="background:#0a0a0a"],body.light [style*="background:#0e0e0e"
   </div>
   <div class="kpi-sec">Résultat</div>
   <div class="kpi-hero-grid">
-    <div class="kpi kpi-hero" style="border-top-color:#4ade80"><div class="kpi-label"><span class="tip">Profit<i class="tip-icon">i</i><span class="tip-box">Net − toutes dépenses. Ce que tu gardes réellement.</span></span></div><div class="kpi-value" style="color:#4ade80" id="vpr">—</div><span class="kpi-delta" id="dvpr" title="vs période précédente"></span><div class="kpi-pct" id="ppr">–</div></div>
-    <div class="kpi" style="border-top-color:#fff"><div class="kpi-label"><span class="tip">CA Brut<i class="tip-icon">i</i><span class="tip-box">Chiffre d'affaires total avant toute déduction</span></span></div><div class="kpi-value" style="color:#fff" id="vb">—</div><span class="kpi-delta" id="dvb" title="vs période précédente"></span><div class="kpi-pct" id="de">–</div></div>
-    <div class="kpi" style="border-top-color:#60a5fa"><div class="kpi-label"><span class="tip">Net<i class="tip-icon">i</i><span class="tip-box">CA Brut × 78% — ce que tu touches réellement</span></span></div><div class="kpi-value" style="color:#60a5fa" id="vn">—</div><span class="kpi-delta" id="dvn" title="vs période précédente"></span><div class="kpi-pct" id="pn">–</div></div>
+    <div class="kpi kpi-hero" style="border-top-color:#4ade80"><div class="kpi-label"><svg class="kpi-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span class="tip">Profit<i class="tip-icon">i</i><span class="tip-box">Net − toutes dépenses. Ce que tu gardes réellement.</span></span></div><div class="kpi-value" style="color:#4ade80" id="vpr">—</div><span class="kpi-delta" id="dvpr" title="vs période précédente"></span><div class="kpi-pct" id="ppr">–</div></div>
+    <div class="kpi" style="border-top-color:#fff"><div class="kpi-label"><svg class="kpi-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span class="tip">CA Brut<i class="tip-icon">i</i><span class="tip-box">Chiffre d'affaires total avant toute déduction</span></span></div><div class="kpi-value" style="color:#fff" id="vb">—</div><span class="kpi-delta" id="dvb" title="vs période précédente"></span><div class="kpi-pct" id="de">–</div></div>
+    <div class="kpi" style="border-top-color:#60a5fa"><div class="kpi-label"><svg class="kpi-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5"/></svg><span class="tip">Net<i class="tip-icon">i</i><span class="tip-box">CA Brut × 78% — ce que tu touches réellement</span></span></div><div class="kpi-value" style="color:#60a5fa" id="vn">—</div><span class="kpi-delta" id="dvn" title="vs période précédente"></span><div class="kpi-pct" id="pn">–</div></div>
   </div>
   <div class="kpi-sec">Dépenses &amp; commission</div>
   <div class="kpi-dep-grid">
@@ -1477,7 +1479,9 @@ function setDelta(id,curr,prev,inverse){
   const p=Math.round((curr-prev)/Math.abs(prev)*100);
   const good=inverse?p<=0:p>=0;
   el.style.display='inline-flex';
-  el.style.color=p===0?'#666':(good?'#4ade80':'#f87171');
+  const c=p===0?'#8a8a8a':(good?'#4ade80':'#f87171');
+  el.style.color=c;
+  el.style.background=p===0?'rgba(255,255,255,.05)':(good?'rgba(74,222,128,.13)':'rgba(248,113,113,.13)');
   el.textContent=(p>0?'▲ +':(p<0?'▼ ':'– '))+p+'%';
 }
 function uk(){
