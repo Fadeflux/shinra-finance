@@ -36,6 +36,20 @@ input[type=date].active{border-color:var(--acc);color:var(--acc)}
 .kpi:hover{background:#141414;border-color:#242424}
 .kpi-hero{background:linear-gradient(160deg,rgba(74,222,128,.10),transparent 72%);border-color:rgba(74,222,128,.35)}
 .kpi-hero .kpi-value{font-size:23px}
+.kpi-sec{font-size:10px;font-weight:600;color:#5a5a5a;text-transform:uppercase;letter-spacing:.07em;margin:2px 3px 9px}
+.kpi-hero-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:10px;margin-bottom:18px}
+.kpi-hero-grid .kpi{min-height:112px;padding:16px 18px}
+.kpi-hero-grid .kpi-value{font-size:25px}
+.kpi-hero-grid .kpi.kpi-hero .kpi-value{font-size:32px}
+.kpi-dep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:8px;margin-bottom:16px}
+.kpi-dep-grid .kpi{min-height:78px;padding:12px 13px}
+.kpi-dep-grid .kpi-value{font-size:16px}
+@media(max-width:640px){
+  .kpi-hero-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .kpi-hero-grid .kpi.kpi-hero{grid-column:1/-1}
+  .kpi-hero-grid .kpi.kpi-hero .kpi-value{font-size:28px}
+  .kpi-dep-grid{grid-template-columns:repeat(2,1fr)}
+}
 .kpi-label{font-size:10px;color:#444;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:5px;font-weight:600;white-space:nowrap;overflow:hidden}
 .kpi-sublabel{display:none}
 .kpi-dot{display:none}
@@ -399,17 +413,21 @@ body.light [style*="background:#0a0a0a"],body.light [style*="background:#0e0e0e"
       </div>
     </div>
   </div>
-  <div class="kpi-grid">
+  <div class="kpi-sec">Résultat</div>
+  <div class="kpi-hero-grid">
+    <div class="kpi kpi-hero" style="border-top-color:#4ade80"><div class="kpi-label"><span class="tip">Profit<i class="tip-icon">i</i><span class="tip-box">Net − toutes dépenses. Ce que tu gardes réellement.</span></span></div><div class="kpi-value" style="color:#4ade80" id="vpr">—</div><span class="kpi-delta" id="dvpr" title="vs période précédente"></span><div class="kpi-pct" id="ppr">–</div></div>
     <div class="kpi" style="border-top-color:#fff"><div class="kpi-label"><span class="tip">CA Brut<i class="tip-icon">i</i><span class="tip-box">Chiffre d'affaires total avant toute déduction</span></span></div><div class="kpi-value" style="color:#fff" id="vb">—</div><span class="kpi-delta" id="dvb" title="vs période précédente"></span><div class="kpi-pct" id="de">–</div></div>
-    <div class="kpi" style="border-top-color:#f87171"><div class="kpi-label"><span class="tip">Commission<i class="tip-icon">i</i><span class="tip-box">OnlyFans prélève 20% + Skrill 2% = 22% du CA brut</span></span></div><div class="kpi-value" style="color:#f87171" id="vof">—</div><div class="kpi-pct">−22% du CA</div></div>
     <div class="kpi" style="border-top-color:#60a5fa"><div class="kpi-label"><span class="tip">Net<i class="tip-icon">i</i><span class="tip-box">CA Brut × 78% — ce que tu touches réellement</span></span></div><div class="kpi-value" style="color:#60a5fa" id="vn">—</div><span class="kpi-delta" id="dvn" title="vs période précédente"></span><div class="kpi-pct" id="pn">–</div></div>
+  </div>
+  <div class="kpi-sec">Dépenses &amp; commission</div>
+  <div class="kpi-dep-grid">
+    <div class="kpi" style="border-top-color:#f87171"><div class="kpi-label"><span class="tip">Commission<i class="tip-icon">i</i><span class="tip-box">OnlyFans prélève 20% + Skrill 2% = 22% du CA brut</span></span></div><div class="kpi-value" style="color:#f87171" id="vof">—</div><div class="kpi-pct">−22% du CA</div></div>
     <div class="kpi" style="border-top-color:#facc15"><div class="kpi-label"><span class="tip">VA<i class="tip-icon">i</i><span class="tip-box">Paiements versés aux Virtual Assistants</span></span></div><div class="kpi-value" style="color:#facc15" id="vva">—</div><div class="kpi-pct" id="pva">–</div></div>
     <div class="kpi" style="border-top-color:#a78bfa"><div class="kpi-label"><span class="tip">Modèle<i class="tip-icon">i</i><span class="tip-box">Paiements versés au/à la modèle</span></span></div><div class="kpi-value" style="color:#a78bfa" id="vmo">—</div><div class="kpi-pct" id="pmo">–</div></div>
     <div class="kpi" style="border-top-color:#22d3ee"><div class="kpi-label"><span class="tip">Chat IA<i class="tip-icon">i</i><span class="tip-box">Coût du chatting automatisé par IA</span></span></div><div class="kpi-value" style="color:#22d3ee" id="vci">—</div><div class="kpi-pct" id="pci">–</div></div>
     <div class="kpi" style="border-top-color:#fb923c"><div class="kpi-label"><span class="tip">Chat Humain<i class="tip-icon">i</i><span class="tip-box">Coût du chatting réalisé par des humains</span></span></div><div class="kpi-value" style="color:#fb923c" id="vch">—</div><div class="kpi-pct" id="pch">–</div></div>
     <div class="kpi" style="border-top-color:#e879f9"><div class="kpi-label"><span class="tip">Dép. diverses<i class="tip-icon">i</i><span class="tip-box">Dépenses ponctuelles (pub, outils, etc.)</span></span></div><div class="kpi-value" style="color:#e879f9" id="val">—</div><div class="kpi-pct" id="pal">–</div></div>
     <div class="kpi" style="border-top-color:#f87171"><div class="kpi-label"><span class="tip">Dép. totales<i class="tip-icon">i</i><span class="tip-box">VA + Modèle + Chat IA + Chat Humain + Aléatoires</span></span></div><div class="kpi-value" style="color:#f87171" id="vdep">—</div><span class="kpi-delta" id="dvdep" title="vs période précédente"></span><div class="kpi-pct" id="pdep">–</div></div>
-    <div class="kpi kpi-hero" style="border-top-color:#4ade80"><div class="kpi-label"><span class="tip">Profit<i class="tip-icon">i</i><span class="tip-box">Net − toutes dépenses. Ce que tu gardes réellement.</span></span></div><div class="kpi-value" style="color:#4ade80" id="vpr">—</div><span class="kpi-delta" id="dvpr" title="vs période précédente"></span><div class="kpi-pct" id="ppr">–</div></div>
   </div>
 
   <div id="advances-panel" style="display:none;background:#111;border-radius:8px;padding:12px 16px;border:1px solid #1a1a1a;border-top:2px solid #1a1a1a;margin-bottom:12px">
