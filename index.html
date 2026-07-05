@@ -391,7 +391,8 @@ body.light .sidebar .tab.active{background:#eaf7ef;color:var(--acc)}
   <button class="tab" onclick="sw('editlog',this);renderEditLog()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg><span>Historique</span></button>
 </nav>
 <div class="dash">
-<div style="display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px">
+  <div class="dash-title" style="display:flex;align-items:center;gap:7px;font-size:20px"><span style="color:var(--acc)">⚡</span>Shinra Finance</div>
   <div style="display:flex;align-items:center;gap:7px">
     <span id="api-dot" title="API déconnectée"></span>
     <span id="save-status" style="font-size:11px;color:#4ade80;opacity:0;transition:opacity .5s"></span>
@@ -421,12 +422,13 @@ body.light .sidebar .tab.active{background:#eaf7ef;color:var(--acc)}
     <div style="font-size:20px;font-weight:500" id="day-evo-value"></div>
   </div>
   <div class="dash-header">
-    <div><div class="dash-title"><span style="color:#fff;margin-right:6px">⚡</span>Shinra Finance</div><div class="dash-sub" id="plbl">Sélectionne une période</div></div>
+    <div><div class="dash-sub" id="plbl" style="font-size:13px;color:#888">Depuis toujours — toutes les entrées</div></div>
     <div class="period-bar">
       <button class="pbtn" onclick="sp(1,this)">Aujourd'hui</button>
       <button class="pbtn" onclick="sp(7,this)">7 jours</button>
       <button class="pbtn" onclick="sp(14,this)">14 jours</button>
       <button class="pbtn" onclick="sp(30,this)">30 jours</button>
+      <button class="pbtn active" onclick="spAll(this)">Depuis toujours</button>
       <div style="display:flex;align-items:center;gap:4px">
         <input type="date" id="cdate-start" onchange="setRange()" style="background:#1a1a1a;border:0.5px solid #333;border-radius:6px;padding:6px 8px;color:#ccc;font-size:12px;outline:none;cursor:pointer">
         <span style="color:#444;font-size:12px">→</span>
@@ -1312,6 +1314,15 @@ function setRange(){
   const lblE=e?new Date(e+'T00:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):' ';
   document.getElementById('plbl').textContent=s&&e&&s!==e?`${lblS} → ${lblE}`:lblS;
   document.getElementById('edlbl').textContent=s&&e&&s!==e?`Entrée pour la période ${lblS}–${lblE}`:`Entrée pour le ${lblS}`;
+  rh();uk();renderDayEvolution();
+}
+function spAll(b){
+  ap=null;acd=null;acdEnd=null;
+  const s=document.getElementById('cdate-start');if(s)s.value='';
+  const e=document.getElementById('cdate-end');if(e)e.value='';
+  document.querySelectorAll('#page-ca .pbtn').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');
+  document.getElementById('plbl').textContent='Depuis toujours — toutes les entrées';
+  const ed=document.getElementById('edlbl');if(ed)ed.textContent='Nouvelle entrée';
   rh();uk();renderDayEvolution();
 }
 function sp(d,b){
