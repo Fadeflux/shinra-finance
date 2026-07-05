@@ -870,6 +870,7 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
     <div><div class="dash-title">Historique des modifications</div><div class="dash-sub">journal de toutes les actions</div></div>
     <button onclick="editLog=[];saveData();renderEditLog()" style="background:#1a1a1a;border:0.5px solid #333;border-radius:6px;padding:6px 14px;color:#888;font-size:11px;cursor:pointer">🗑 Effacer</button>
   </div>
+  <div id="activity-panel" class="panel" style="display:none;margin-bottom:12px"></div>
   <div class="panel">
     <div id="editlog-content"><div class="emsg">Aucune modification enregistrée</div></div>
   </div>
@@ -2643,11 +2644,31 @@ async function testDiscord() {
   if (btn) { btn.textContent = '✓'; setTimeout(() => { btn.textContent = 'Tester'; btn.disabled = false; }, 2000); }
 }
 
+function launchConfetti(){
+  var c=document.createElement('canvas');
+  c.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:99999';
+  c.width=innerWidth;c.height=innerHeight;
+  document.body.appendChild(c);
+  var ctx=c.getContext('2d');
+  var colors=['#4ade80','#facc15','#60a5fa','#e879f9','#fb923c','#ffffff'];
+  var parts=[];
+  for(var i=0;i<150;i++){parts.push({x:innerWidth/2+(Math.random()-.5)*220,y:innerHeight*0.28,vx:(Math.random()-.5)*15,vy:Math.random()*-15-4,g:0.32+Math.random()*0.22,size:5+Math.random()*6,color:colors[i%colors.length],rot:Math.random()*6,vr:(Math.random()-.5)*0.45});}
+  var t0=performance.now();
+  function frame(now){
+    var dt=now-t0;
+    ctx.clearRect(0,0,c.width,c.height);
+    var alive=false;
+    for(var j=0;j<parts.length;j++){var p=parts[j];p.vy+=p.g;p.x+=p.vx;p.y+=p.vy;p.vx*=0.99;p.rot+=p.vr;if(p.y<c.height+20)alive=true;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);ctx.globalAlpha=Math.max(0,1-dt/2800);ctx.fillStyle=p.color;ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size*0.6);ctx.restore();}
+    if(dt<2800&&alive)requestAnimationFrame(frame);else c.remove();
+  }
+  requestAnimationFrame(frame);
+}
 function checkGoalReached(profitBefore, profitAfter, goal) {
   if (!goal || goal <= 0) return;
   if (profitBefore < goal && profitAfter >= goal) {
     const mois = new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
     sendDiscordNotif(`🎉 **Objectif mensuel atteint !** Profit de **$${Math.round(profitAfter).toLocaleString('en-US')}** sur un objectif de **$${Math.round(goal).toLocaleString('en-US')}** — ${mois} ✅`);
+    launchConfetti();
   }
 }
 
@@ -2954,7 +2975,17 @@ function runGSearch(q){
 }
 
 // ── Historique des modifications ──
+function renderActivity(){
+  var el=document.getElementById('activity-panel');if(!el)return;
+  var stats={'Moi':{n:0,ca:0,pr:0},'Associé':{n:0,ca:0,pr:0}};var unsigned=0;
+  ents.forEach(function(e){var a=e.author;if(a==='Moi'||a==='Associé'){stats[a].n++;stats[a].ca+=e.brut||0;stats[a].pr+=e.profit||0;}else unsigned++;});
+  if(stats['Moi'].n===0&&stats['Associé'].n===0){el.style.display='none';return;}
+  el.style.display='block';
+  var card=function(name,s,color){return '<div style="flex:1;min-width:160px;background:#141416;border:1px solid #242428;border-radius:10px;padding:14px 16px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:'+color+'">'+name+'</div><div style="font-size:22px;font-weight:700;margin-top:8px">'+s.n+' <span style="font-size:12px;color:#888;font-weight:400">entrée(s)</span></div><div style="font-size:12px;color:#888;margin-top:5px">CA saisi <b style="color:#ccc">'+fmtR(s.ca)+'</b> · profit <b style="color:'+(s.pr>=0?'#4ade80':'#f87171')+'">'+fmtR(s.pr)+'</b></div></div>';};
+  el.innerHTML='<div class="panel-title">👥 Activité par associé</div><div class="panel-sub">qui a saisi quoi (toutes les entrées)</div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">'+card('Moi',stats['Moi'],'#60a5fa')+card('Associé',stats['Associé'],'#e879f9')+'</div>'+(unsigned?'<div style="font-size:11px;color:#555;margin-top:8px">+ '+unsigned+' entrée(s) non signée(s) (avant cette fonction)</div>':'');
+}
 function renderEditLog(){
+  renderActivity();
   const el=document.getElementById('editlog-content');if(!el)return;
   if(!editLog.length){el.innerHTML='<div class="emsg">Aucune modification enregistrée</div>';return;}
   const fmt2=ts=>new Date(ts).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
