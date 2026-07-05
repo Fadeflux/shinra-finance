@@ -15,7 +15,7 @@
 :root{--acc:#4ade80;--acc-ink:#08240f;--acc-hover:#3dc970}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#0a0a0a;font-family:'Inter',system-ui,-apple-system,sans-serif;padding:20px;min-height:100vh;-webkit-font-smoothing:antialiased}
-.dash{background:#0e0e0e;border-radius:12px;padding:24px;color:#fff;max-width:1200px;margin:0 auto;border:1px solid #1a1a1a}
+.dash{background:#0e0e0e;border-radius:12px;padding:26px 28px;color:#fff;max-width:1480px;margin:0 auto;border:1px solid #1a1a1a}
 .tabs{display:flex;gap:2px;margin-bottom:24px;flex-wrap:wrap;background:#141414;padding:4px;border-radius:9px;width:fit-content}
 .tab{display:inline-flex;align-items:center;gap:6px;background:transparent;border:none;border-radius:6px;padding:7px 14px;color:#555;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;letter-spacing:-.01em}
 .tab svg{width:14px;height:14px;flex-shrink:0;opacity:.85}
@@ -37,13 +37,13 @@ input[type=date].active{border-color:var(--acc);color:var(--acc)}
 .kpi-hero{background:linear-gradient(160deg,rgba(74,222,128,.10),transparent 72%);border-color:rgba(74,222,128,.35)}
 .kpi-hero .kpi-value{font-size:23px}
 .kpi-sec{font-size:10px;font-weight:600;color:#5a5a5a;text-transform:uppercase;letter-spacing:.07em;margin:2px 3px 9px}
-.kpi-hero-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:10px;margin-bottom:18px}
-.kpi-hero-grid .kpi{min-height:112px;padding:16px 18px}
-.kpi-hero-grid .kpi-value{font-size:25px}
-.kpi-hero-grid .kpi.kpi-hero .kpi-value{font-size:32px}
-.kpi-dep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:8px;margin-bottom:16px}
-.kpi-dep-grid .kpi{min-height:78px;padding:12px 13px}
-.kpi-dep-grid .kpi-value{font-size:16px}
+.kpi-hero-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:13px;margin-bottom:22px}
+.kpi-hero-grid .kpi{min-height:132px;padding:19px 22px}
+.kpi-hero-grid .kpi-value{font-size:28px}
+.kpi-hero-grid .kpi.kpi-hero .kpi-value{font-size:38px}
+.kpi-dep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:11px;margin-bottom:18px}
+.kpi-dep-grid .kpi{min-height:96px;padding:15px 17px}
+.kpi-dep-grid .kpi-value{font-size:19px}
 .kpi-hero-grid .kpi:not(.kpi-hero),.kpi-dep-grid .kpi{border-color:#242428;border-top-color:#242428!important}
 .kpi-ico{width:14px;height:14px;flex-shrink:0;opacity:.7}
 @media(max-width:640px){
