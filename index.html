@@ -334,6 +334,9 @@ body.light .icon-btn:hover{background:#e8e8e8;color:#222}
   .sidebar .tab{flex-direction:column;width:78px;height:70px;padding:0;font-size:10.5px;gap:5px;white-space:nowrap;flex-shrink:0}
   .sidebar .tab svg{width:21px;height:21px}
 }
+.ro-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:4px 11px;border-radius:8px;background:rgba(74,222,128,.12);color:var(--acc);border:1px solid var(--acc)}
+body.readonly #ro-badge{display:inline-flex!important}
+body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [onclick*="saveData"],body.readonly [onclick*="openQuickAdd"],body.readonly .abtn,body.readonly .avabtn,body.readonly .arm,body.readonly .varm,body.readonly [onclick*="addVirement"],body.readonly [onclick*="addModelePayment"],body.readonly [onclick*="rmModele"],body.readonly [onclick*="editLog=[]"]{display:none!important}
 </style>
 </head>
 <body>
@@ -401,6 +404,7 @@ body.light .icon-btn:hover{background:#e8e8e8;color:#222}
   <div style="display:flex;align-items:center;gap:7px">
     <span id="api-dot" title="API déconnectée"></span>
     <span id="save-status" style="font-size:11px;color:#4ade80;opacity:0;transition:opacity .5s"></span>
+    <span id="ro-badge" class="ro-badge" style="display:none">👁 Lecture seule</span>
     <button onclick="saveData()" style="background:var(--acc);border:none;border-radius:9px;padding:7px 14px;color:var(--acc-ink);font-size:11px;font-weight:600;cursor:pointer;transition:filter .15s" onmouseover="this.style.filter='brightness(1.08)'" onmouseout="this.style.filter='none'">Sauvegarder</button>
     <div class="export-dropdown">
       <button class="export-dropdown-btn">Exporter ▾</button>
@@ -441,6 +445,13 @@ body.light .icon-btn:hover{background:#e8e8e8;color:#222}
       </div>
     </div>
   </div>
+  <div id="empty-state" style="display:none;text-align:center;padding:48px 20px">
+    <div style="font-size:38px;margin-bottom:12px">👋</div>
+    <div style="font-size:19px;font-weight:700;color:#fff;margin-bottom:7px">Bienvenue sur Shinra Finance</div>
+    <div style="font-size:13px;color:#888;max-width:430px;margin:0 auto 20px;line-height:1.5">Aucune entrée pour l'instant. Ajoute ta première entrée de CA ci-dessous — ton profit, tes dépenses et tes stats apparaîtront ici automatiquement.</div>
+    <button onclick="var i=document.getElementById('ib');if(i){i.scrollIntoView({behavior:'smooth',block:'center'});i.focus();}" style="background:var(--acc);border:none;border-radius:10px;padding:11px 20px;color:var(--acc-ink);font-size:13px;font-weight:600;cursor:pointer">+ Saisir ma première entrée</button>
+  </div>
+  <div id="insights-banner" style="display:none;flex-wrap:wrap;align-items:center;gap:12px 26px;background:linear-gradient(100deg,rgba(74,222,128,.06),transparent 55%);border:1px solid #1e1e24;border-radius:12px;padding:13px 18px;margin-bottom:20px"></div>
   <div class="kpi-sec">Résultat</div>
   <div class="kpi-hero-grid">
     <div class="kpi kpi-hero" style="border-top-color:#4ade80"><div class="kpi-label"><svg class="kpi-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span class="tip">Profit<i class="tip-icon">i</i><span class="tip-box">Net − toutes dépenses. Ce que tu gardes réellement.</span></span></div><div class="kpi-value" style="color:#4ade80" id="vpr">—</div><span class="kpi-delta" id="dvpr" title="vs période précédente"></span><div class="kpi-pct" id="ppr">–</div></div>
@@ -587,7 +598,7 @@ body.light .icon-btn:hover{background:#e8e8e8;color:#222}
       </div>
     </div>
   </div>
-  <div class="panel" style="margin-bottom:12px">
+  <div class="panel" id="ca-entry-panel" style="margin-bottom:12px">
     <div class="panel-title">Saisir une entrée</div>
     <div class="panel-sub" id="edlbl">Sélectionne d'abord une date ou période</div>
     <div id="edit-banner">
@@ -1519,8 +1530,33 @@ function setDelta(id,curr,prev,inverse){
   el.style.background=p===0?'rgba(255,255,255,.05)':(good?'rgba(74,222,128,.13)':'rgba(248,113,113,.13)');
   el.textContent=(p>0?'▲ +':(p<0?'▼ ':'– '))+p+'%';
 }
+function renderInsights(){
+  const el=document.getElementById('insights-banner');if(!el)return;
+  const f=gf();
+  const br=f.reduce((s,e)=>s+(e.brut||0),0);
+  if(!f.length||br<=0){el.style.display='none';return;}
+  const va=f.reduce((s,e)=>s+(e.va||0),0),mo=f.reduce((s,e)=>s+(e.mo||0),0),ci=f.reduce((s,e)=>s+(e.ci||0),0),ch=f.reduce((s,e)=>s+(e.ch||0),0),al=f.reduce((s,e)=>s+(e.alT||0),0);
+  const net=br*.78,dep=va+mo+ci+ch+al,pr=net-dep;
+  const items=[];
+  items.push({ic:'💰',c:pr>=0?'#4ade80':'#f87171',t:'Profit <b>'+fmtR(pr)+'</b> · marge <b>'+Math.round(pr/br*100)+'%</b>'});
+  const postes=[['Paiement VA',va],['Modèle',mo],['Chat IA',ci],['Chat Humain',ch],['Dép. diverses',al]];
+  const mx=postes.reduce((a,b)=>b[1]>a[1]?b:a,['',0]);
+  if(mx[1]>0)items.push({ic:'🎯',c:'#facc15',t:'Plus gros poste : <b>'+mx[0]+'</b> ('+fmtR(mx[1])+', '+Math.round(mx[1]/br*100)+'%)'});
+  const pd=periodDelta();
+  if(pd&&pd.prev.pr){
+    const evo=Math.round((pd.curr.pr-pd.prev.pr)/Math.abs(pd.prev.pr)*100);
+    items.push({ic:evo>=0?'📈':'📉',c:evo>=0?'#4ade80':'#f87171',t:'Profit <b>'+(evo>=0?'+':'')+evo+'%</b> vs période précédente'});
+  } else {
+    items.push({ic:'📊',c:'#60a5fa',t:'<b>'+f.length+'</b> entrée(s) · CA <b>'+fmtR(br)+'</b>'});
+  }
+  el.style.display='flex';
+  el.innerHTML=items.map(i=>'<span style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:#c8c8cc"><span style="font-size:15px">'+i.ic+'</span><span style="border-left:2px solid '+i.c+';padding-left:9px">'+i.t+'</span></span>').join('');
+}
 function uk(){
   const f=gf();
+  const _empty=ents.length===0;
+  const _es=document.getElementById('empty-state');if(_es)_es.style.display=_empty?'block':'none';
+  document.querySelectorAll('#page-ca .kpi-sec,#page-ca .kpi-hero-grid,#page-ca .kpi-dep-grid').forEach(x=>{x.style.display=_empty?'none':'';});
   const br=f.reduce((s,e)=>s+e.brut,0)+gv('ib');
   const va=f.reduce((s,e)=>s+e.va,0)+gv('iv');
   const mo=f.reduce((s,e)=>s+e.mo,0)+gv('im');
@@ -1537,6 +1573,7 @@ function uk(){
   const _pd=periodDelta();
   if(_pd){setDelta('dvb',_pd.curr.br,_pd.prev.br);setDelta('dvn',_pd.curr.net,_pd.prev.net);setDelta('dvdep',_pd.curr.dep,_pd.prev.dep,true);setDelta('dvpr',_pd.curr.pr,_pd.prev.pr);}
   else{['dvb','dvn','dvdep','dvpr'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});}
+  renderInsights();
   // Avances par associé
   let myAdv=0,assocAdv=0;
   const curAlI=gai();
@@ -2908,6 +2945,7 @@ document.addEventListener('keydown',e=>{
 });
 
 loadTheme();
+if(new URLSearchParams(location.search).get('ro')==='1')document.body.classList.add('readonly');
 (function(){
   const di=document.getElementById('entry-date-input');
   if(di&&!di.value)di.value=ts();
