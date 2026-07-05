@@ -384,7 +384,6 @@ body.light .sidebar .tab.active{background:#eaf7ef;color:var(--acc)}
   </div>
 </div>
 <nav class="sidebar" id="sidebar">
-  <div class="side-logo">⚡</div>
   <button class="tab active" onclick="sw('ca',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 4-6"/></svg><span>Dashboard</span></button>
   <button class="tab" onclick="sw('va',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M17 8h4M19 6v4"/></svg><span>VA</span></button>
   <button class="tab" onclick="sw('modeles',this);renderModeles()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg><span>Modèles</span></button>
@@ -407,8 +406,8 @@ body.light .sidebar .tab.active{background:#eaf7ef;color:var(--acc)}
         <label>⬆ Importer JSON<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
       </div>
     </div>
-    <button onclick="openGSearch()" title="Recherche globale (Ctrl+Shift+F)" style="background:transparent;border:0.5px solid #222;border-radius:7px;padding:5px 12px;color:#444;font-size:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px" onmouseover="this.style.borderColor='#444';this.style.color='#888'" onmouseout="this.style.borderColor='#222';this.style.color='#444'">🔍 <span style="font-size:10px;color:#333">Ctrl+Shift+F</span></button>
-    <button onclick="openQuickAdd()" title="Ajout rapide (Ctrl+K)" style="background:#1a1a2a;border:0.5px solid #2a3a5a;border-radius:7px;padding:5px 12px;color:#60a5fa;font-size:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px" onmouseover="this.style.background='#1e2035'" onmouseout="this.style.background='#1a1a2a'">⚡ <span style="font-size:10px">Ctrl+K</span></button>
+    <button onclick="openGSearch()" title="Recherche globale (Ctrl+Shift+F)" style="background:transparent;border:0.5px solid #222;border-radius:7px;padding:5px 12px;color:#444;font-size:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px" onmouseover="this.style.borderColor='#444';this.style.color='#888'" onmouseout="this.style.borderColor='#222';this.style.color='#444'">🔍</button>
+    <button onclick="openQuickAdd()" title="Ajout rapide (Ctrl+K)" style="background:#1a1a2a;border:0.5px solid #2a3a5a;border-radius:7px;padding:5px 12px;color:#60a5fa;font-size:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px" onmouseover="this.style.background='#1e2035'" onmouseout="this.style.background='#1a1a2a'">⚡</button>
     <button onclick="toggleTheme()" id="theme-btn" style="background:transparent;border:0.5px solid #222;border-radius:7px;padding:5px 9px;color:#444;font-size:12px;cursor:pointer;transition:all .15s" title="Changer thème" onmouseover="this.style.borderColor='#444';this.style.color='#888'" onmouseout="this.style.borderColor='#222';this.style.color='#444'">🌙</button>
     <div id="role-badge" style="display:none;font-size:10px;padding:3px 8px;border-radius:5px;font-weight:600"></div>
     <button onclick="doLogout()" style="background:transparent;border:0.5px solid #222;border-radius:7px;padding:5px 9px;color:#444;font-size:12px;cursor:pointer;transition:all .15s" title="Déconnexion" onmouseover="this.style.borderColor='#444';this.style.color='#888'" onmouseout="this.style.borderColor='#222';this.style.color='#444'">⏻</button>
@@ -1654,7 +1653,7 @@ function rc(){
         label:'Profit',
         data:ps,
         borderColor:'#4ade80',
-        backgroundColor:'rgba(74,222,128,0.08)',
+        backgroundColor:(c)=>{const a=c.chart.chartArea;if(!a)return 'rgba(74,222,128,0.15)';const g=c.chart.ctx.createLinearGradient(0,a.top,0,a.bottom);g.addColorStop(0,'rgba(74,222,128,0.40)');g.addColorStop(1,'rgba(74,222,128,0.02)');return g;},
         pointBackgroundColor:ps.map(p=>p>=0?'#4ade80':'#f87171'),
         pointBorderColor:ps.map(p=>p>=0?'#4ade80':'#f87171'),
         pointRadius:5,
@@ -2014,7 +2013,7 @@ function renderProfitChart(){
         label:'Profit VA',
         data,
         borderColor:'#4ade80',
-        backgroundColor:'rgba(74,222,128,0.08)',
+        backgroundColor:(c)=>{const a=c.chart.chartArea;if(!a)return 'rgba(74,222,128,0.15)';const g=c.chart.ctx.createLinearGradient(0,a.top,0,a.bottom);g.addColorStop(0,'rgba(74,222,128,0.40)');g.addColorStop(1,'rgba(74,222,128,0.02)');return g;},
         pointBackgroundColor:ptColors,
         pointBorderColor:ptColors,
         pointRadius:5,
