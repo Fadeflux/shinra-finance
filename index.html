@@ -2876,7 +2876,8 @@ loadTheme();
   if(el)el.textContent="Entrée pour aujourd'hui — change la date si besoin";
 })();
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  // Désinscrit tout ancien service worker (le cache PWA gardait d'anciennes versions). On NE réenregistre PAS.
+  navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});
 }
 (async () => {
   const token = getToken();

@@ -1,24 +1,18 @@
-const CACHE = 'shinra-v1';
-const ASSETS = ['/crm-agency-frontend/', '/crm-agency-frontend/index.html'];
+// Service worker NEUTRALISÉ : il se désinscrit et vide tous les caches.
+// (L'ancien cache PWA gardait l'affichage d'anciennes versions du site.)
+self.addEventListener('install', () => self.skipWaiting());
 
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS).catch(() => {})));
-  self.skipWaiting();
+self.addEventListener('activate', (e) => {
+  e.waitUntil((async () => {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+      await self.registration.unregister();
+      const clients = await self.clients.matchAll({ type: 'window' });
+      clients.forEach(c => c.navigate(c.url)); // recharge les pages ouvertes → version fraîche
+    } catch (err) {}
+  })());
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
-  self.clients.claim();
-});
-
-self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  if (e.request.url.includes('/api/')) return;
-  e.respondWith(
-    fetch(e.request).then(res => {
-      const clone = res.clone();
-      caches.open(CACHE).then(c => c.put(e.request, clone));
-      return res;
-    }).catch(() => caches.match(e.request))
-  );
-});
+// Toujours passer par le réseau (aucune mise en cache).
+self.addEventListener('fetch', () => {});
