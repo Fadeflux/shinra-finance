@@ -87,8 +87,8 @@ select.ifield{cursor:pointer}
 .sbtn:hover{background:var(--acc-hover)}
 .emsg{font-size:12px;color:#444;text-align:center;padding:18px 0}
 .vasg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:16px}
-.vacard{background:#111;border-radius:8px;border:1px solid #1a1a1a;border-top:2px solid #222;padding:14px;position:relative;margin-bottom:8px;transition:border-color .15s}
-.vacard:hover{border-color:#2a2a2a}
+.vacard{background:#111;border-radius:8px;border:1px solid #1a1a1a;border-top:2px solid #222;padding:14px;position:relative;margin-bottom:8px;transition:transform .15s,border-color .15s,box-shadow .15s}
+.vacard:hover{border-color:#2a2a2a;transform:translateY(-3px);box-shadow:0 10px 26px -12px rgba(0,0,0,.7)}
 .vach{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .vaav{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0}
 .vacn{font-size:14px;font-weight:500;color:#fff}
@@ -405,6 +405,7 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
     <span id="api-dot" title="API déconnectée"></span>
     <span id="save-status" style="font-size:11px;color:#4ade80;opacity:0;transition:opacity .5s"></span>
     <span id="ro-badge" class="ro-badge" style="display:none">👁 Lecture seule</span>
+    <div id="user-toggle" title="Qui saisit ? (signe chaque entrée)" style="display:inline-flex;background:#161619;border:1px solid #26262c;border-radius:8px;padding:2px;gap:2px"><button onclick="setUser('Moi')" id="ut-moi" style="border:none;background:var(--acc);color:var(--acc-ink);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer">Moi</button><button onclick="setUser('Associé')" id="ut-asso" style="border:none;background:transparent;color:#888;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer">Associé</button></div>
     <button onclick="saveData()" style="background:var(--acc);border:none;border-radius:9px;padding:7px 14px;color:var(--acc-ink);font-size:11px;font-weight:600;cursor:pointer;transition:filter .15s" onmouseover="this.style.filter='brightness(1.08)'" onmouseout="this.style.filter='none'">Sauvegarder</button>
     <div class="export-dropdown">
       <button class="export-dropdown-btn">Exporter ▾</button>
@@ -1688,7 +1689,7 @@ function rh(){
     const pbTag=(v,key)=>v>0?`<span style="font-size:9px;padding:1px 4px;border-radius:3px;margin-left:3px;background:${(pb[key]||'moi')==='moi'?'#1a2030':'#221a2d'};color:${(pb[key]||'moi')==='moi'?'#60a5fa':'#e879f9'}">${(pb[key]||'moi')==='moi'?'M':'A'}</span>`:'';
     const as=e.alI&&e.alI.length?e.alI.map(x=>`<span style="color:#e879f9">${x.name} ${fmtR(x.val)}<span style="font-size:9px;padding:1px 4px;border-radius:3px;margin-left:2px;background:${(x.paidBy||'moi')==='moi'?'#1a2030':'#221a2d'};color:${(x.paidBy||'moi')==='moi'?'#60a5fa':'#e879f9'}">${(x.paidBy||'moi')==='moi'?'M':'A'}</span></span>`).join(' · '):'';
     const notesHtml=e.notes?`<div style="font-size:10px;color:#555;margin-top:3px;font-style:italic">💬 ${e.notes}</div>`:'';
-    return `<div class="txrow"><div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0"><span class="txdb">${dl(e.date)}</span><div><div style="font-size:13px;color:#bbb">CA ${fmtR(e.brut)}</div><div style="font-size:11px;color:#444;margin-top:2px;line-height:1.7"><span style="color:#facc15">VA ${fmtR(e.va)}${pbTag(e.va,'va')}</span> · <span style="color:#a78bfa">Modèle ${fmtR(e.mo)}${pbTag(e.mo,'mo')}</span> · <span style="color:#22d3ee">Chat IA ${fmtR(e.ci)}${pbTag(e.ci,'ci')}</span> · <span style="color:#fb923c">Chat Hum. ${fmtR(e.ch)}${pbTag(e.ch,'ch')}</span>${as?' · '+as:''}</div>${notesHtml}</div></div><div style="display:flex;align-items:center;gap:8px"><div style="text-align:right"><div style="font-size:13px;font-weight:500;color:${e.profit>=0?'#4ade80':'#f87171'}">${e.profit>=0?'+':''}${fmtR(e.profit)}</div><div style="font-size:10px;color:#444;margin-top:2px">${mg}% marge</div></div><div class="row-actions"><button onclick="window.editEntry(${ri})" title="Modifier" style="color:#facc15">✏</button><button onclick="window.duplicateEntry(${ri})" title="Dupliquer" style="color:#60a5fa">⎘</button><button onclick="deleteEntry(${ri})" title="Supprimer" style="color:#444">✕</button></div></div></div>`;
+    return `<div class="txrow"><div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0"><span class="txdb">${dl(e.date)}</span>${e.author?`<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#1a1a1e;color:#8a8a90;border:0.5px solid #2a2a2a;margin-left:4px">${e.author}</span>`:''}<div><div style="font-size:13px;color:#bbb">CA ${fmtR(e.brut)}</div><div style="font-size:11px;color:#444;margin-top:2px;line-height:1.7"><span style="color:#facc15">VA ${fmtR(e.va)}${pbTag(e.va,'va')}</span> · <span style="color:#a78bfa">Modèle ${fmtR(e.mo)}${pbTag(e.mo,'mo')}</span> · <span style="color:#22d3ee">Chat IA ${fmtR(e.ci)}${pbTag(e.ci,'ci')}</span> · <span style="color:#fb923c">Chat Hum. ${fmtR(e.ch)}${pbTag(e.ch,'ch')}</span>${as?' · '+as:''}</div>${notesHtml}</div></div><div style="display:flex;align-items:center;gap:8px"><div style="text-align:right"><div style="font-size:13px;font-weight:500;color:${e.profit>=0?'#4ade80':'#f87171'}">${e.profit>=0?'+':''}${fmtR(e.profit)}</div><div style="font-size:10px;color:#444;margin-top:2px">${mg}% marge</div></div><div class="row-actions"><button onclick="window.quickNote(${ri})" title="${e.notes?'Note (cliquer pour éditer)':'Ajouter une note partagée'}" style="color:${e.notes?'#4ade80':'#444'}">💬</button><button onclick="window.editEntry(${ri})" title="Modifier" style="color:#facc15">✏</button><button onclick="window.duplicateEntry(${ri})" title="Dupliquer" style="color:#60a5fa">⎘</button><button onclick="deleteEntry(${ri})" title="Supprimer" style="color:#444">✕</button></div></div></div>`;
   }).join('');
   const pg=document.getElementById('hist-pagination');
   pg.innerHTML=totalPages>1?`<button onclick="_histPage=Math.max(0,_histPage-1);rh()" ${_histPage===0?'disabled':''}>‹ Préc.</button><span>${_histPage+1} / ${totalPages}</span><button onclick="_histPage=Math.min(${totalPages-1},_histPage+1);rh()" ${_histPage>=totalPages-1?'disabled':''}>Suiv. ›</button>`:'';
@@ -2240,12 +2241,14 @@ function renderVA(filteredVas, flt){
     const periodBadge=v.currentPeriod?`<span style="font-size:9px;background:#1a1a2a;color:#60a5fa;border:0.5px solid #185FA5;padding:1px 6px;border-radius:4px;margin-left:4px">${v.currentPeriod}</span>`:'';
     const alerts=galerts(v);
     const alertsHtml=alerts.length?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;padding-top:8px;border-top:0.5px solid #222">${alerts.map(a=>`<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:500;background:${a.bg};color:${a.c};border:0.5px solid ${a.bd}">${a.ic} ${a.l}</span>`).join('')}</div>`:'';
+    const medal=gr===1?'🥇':gr===2?'🥈':gr===3?'🥉':'#'+gr;
+    const trendBadge=(evo&&evo.profit!==null)?`<span title="Tendance du profit vs période précédente" style="display:inline-flex;align-items:center;gap:2px;font-size:11px;font-weight:700;color:${evo.profit>0?'#4ade80':evo.profit<0?'#f87171':'#888'}">${evo.profit>0?'↗':evo.profit<0?'↘':'→'}${evo.profit>0?'+':''}${evo.profit}%</span>`:'';
     return `<div class="vacard" style="border-color:${bc}">
-      <div class="rnkb">#${gr}</div>
+      <div class="rnkb" style="font-size:${gr<=3?'17px':'11px'}">${medal}</div>
       <button class="varm" onclick="rmVA(${ri})">×</button>
       <div class="vach" style="padding-left:28px">
         <div class="vaav" style="background:${cb};color:${cc}">${ini}</div>
-        <div><div class="vacn">${v.name}${periodBadge}</div><div class="vacs">${lh}<span class="cbdg" style="background:${cb};color:${cc}">${v.cat}</span><span class="${rc.c}">${rc.l}</span>${actBadge}</div></div>
+        <div><div class="vacn">${v.name}${periodBadge}</div><div class="vacs">${lh}<span class="cbdg" style="background:${cb};color:${cc}">${v.cat}</span><span class="${rc.c}">${rc.l}</span>${actBadge}${trendBadge}</div></div>
       </div>
       <div class="vsr"><span class="vsrl">Prix par sub</span><span class="vsrv" style="color:#fff">$${v.rate.toFixed(2)}</span></div>
       <div class="vsr"><span class="vsrl">Subs gérés</span><span class="vsrv" style="color:#fff">${v.subs.toLocaleString('en-US')}</span></div>
@@ -2689,9 +2692,34 @@ function importData(e) {
 
 // ── Hooks sur les actions ──
 const _origSe = se;
+var _currentUser=localStorage.getItem('crm_user')||'Moi';
+function setUser(u){
+  _currentUser=u;try{localStorage.setItem('crm_user',u);}catch(e){}
+  var m=document.getElementById('ut-moi'),a=document.getElementById('ut-asso');
+  if(m&&a){var on=u==='Moi'?m:a,off=u==='Moi'?a:m;on.style.background='var(--acc)';on.style.color='var(--acc-ink)';off.style.background='transparent';off.style.color='#888';}
+}
+window.quickNote=function(idx){
+  var e=gf()[idx];if(!e)return;
+  var nv=prompt('Note partagée sur cette entrée (visible par ton associé) :',e.notes||'');
+  if(nv===null)return;
+  var ri=ents.indexOf(e);
+  if(ri>=0){ents[ri].notes=nv.trim();if(e.id&&typeof updateEntryAPI==='function')updateEntryAPI(e.id,ents[ri]);if(typeof logEdit==='function')logEdit('Note','sur '+dl(e.date));saveData();rh();}
+};
+function _kpiNum(id){const el=document.getElementById(id);if(!el)return 0;return parseFloat((el.textContent||'').replace(/[^0-9.-]/g,''))||0;}
+function countUpKPI(id,from){
+  const el=document.getElementById(id);if(!el)return;
+  const to=_kpiNum(id);
+  const card=el.closest('.kpi');
+  if(card){const up=to>=from;card.style.transition='box-shadow .4s';card.style.boxShadow=up?'0 0 0 1px rgba(74,222,128,.55),0 0 22px rgba(74,222,128,.28)':'0 0 0 1px rgba(248,113,113,.55),0 0 22px rgba(248,113,113,.24)';setTimeout(function(){card.style.boxShadow='';},750);}
+  if(from===to)return;
+  const start=performance.now(),dur=650;
+  const step=function(now){const t=Math.min(1,(now-start)/dur);const val=from+(to-from)*(1-Math.pow(1-t,3));el.textContent='$'+Math.round(Math.abs(val)).toLocaleString('en-US');if(t<1)requestAnimationFrame(step);else el.textContent='$'+Math.round(Math.abs(to)).toLocaleString('en-US');};
+  requestAnimationFrame(step);
+}
 function se() {
   const br=gv('ib'); if(!br){flashMsg('se-msg','⚠ Entre au moins un CA Brut','#f87171');const _ib=document.getElementById('ib');if(_ib)_ib.focus();return;}
   const wasEdit=!!_editingId;
+  const _oldK={vpr:_kpiNum('vpr'),vb:_kpiNum('vb'),vn:_kpiNum('vn')};
   const va=gv('iv'),mo=gv('im'),ci=gv('ici'),ch=gv('ich');
   const alI=gai(),alT=alI.reduce((s,i)=>s+i.val,0);
   const dateInput=document.getElementById('entry-date-input')?.value;
@@ -2699,7 +2727,7 @@ function se() {
   const profit=Math.round(br*.78-va-mo-ci-ch-alT);
   const paidBy={va:gpb('pb-iv'),mo:gpb('pb-im'),ci:gpb('pb-ici'),ch:gpb('pb-ich')};
   const notes=document.getElementById('entry-notes')?.value.trim()||'';
-  const entry={date,brut:br,va,mo,ci,ch,alI,alT,profit,paidBy,notes};
+  const entry={date,brut:br,va,mo,ci,ch,alI,alT,profit,paidBy,notes,author:_currentUser};
   const goal=parseFloat(document.getElementById('monthly-goal')?.value)||0;
   const now=ts().slice(0,7);
   const profitBefore=ents.filter(e=>e.date.slice(0,7)===now).reduce((s,e)=>s+e.profit,0);
@@ -2726,6 +2754,7 @@ function se() {
   const _en=document.getElementById('entry-notes');if(_en)_en.value='';
   loadDefaultPayers();
   rh();rc();uk();renderVirements();renderModeles();
+  ['vpr','vb','vn'].forEach(id=>countUpKPI(id,_oldK[id]));
   saveData();
   flashMsg('se-msg',wasEdit?'✓ Entrée modifiée':'✓ Entrée enregistrée','#4ade80');
 }
@@ -2946,6 +2975,7 @@ document.addEventListener('keydown',e=>{
 
 loadTheme();
 if(new URLSearchParams(location.search).get('ro')==='1')document.body.classList.add('readonly');
+setUser(_currentUser);
 (function(){
   const di=document.getElementById('entry-date-input');
   if(di&&!di.value)di.value=ts();
