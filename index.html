@@ -338,6 +338,8 @@ body.light .icon-btn:hover{background:#e8e8e8;color:#222}
   .sidebar .tab svg{width:21px;height:21px}
 }
 .ro-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:4px 11px;border-radius:8px;background:rgba(74,222,128,.12);color:var(--acc);border:1px solid var(--acc)}
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.55);opacity:.6;cursor:pointer;transition:opacity .15s}
+input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1}
 /* Uniformisation page VA : bordures neutres + valeurs sobres (comme le Dashboard) */
 .vasg .kpi{border-color:#242428;border-top-color:#242428!important}
 .vasg .kpi .kpi-value{color:#e8e8ea!important}
@@ -450,9 +452,9 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
       <button class="pbtn" onclick="sp(30,this)">30 jours</button>
       <button class="pbtn active" onclick="spAll(this)">Depuis toujours</button>
       <div style="display:flex;align-items:center;gap:4px">
-        <input type="date" id="cdate-start" onchange="setRange()" style="background:#1a1a1a;border:0.5px solid #333;border-radius:6px;padding:6px 8px;color:#ccc;font-size:12px;outline:none;cursor:pointer">
+        <input type="date" id="cdate-start" onchange="setRange()" style="background:#161619;border:1px solid #26262c;border-radius:8px;padding:6px 10px;color:#ccc;font-size:12px;outline:none;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='#3a3a42'" onmouseout="this.style.borderColor='#26262c'">
         <span style="color:#444;font-size:12px">→</span>
-        <input type="date" id="cdate-end" onchange="setRange()" style="background:#1a1a1a;border:0.5px solid #333;border-radius:6px;padding:6px 8px;color:#ccc;font-size:12px;outline:none;cursor:pointer">
+        <input type="date" id="cdate-end" onchange="setRange()" style="background:#161619;border:1px solid #26262c;border-radius:8px;padding:6px 10px;color:#ccc;font-size:12px;outline:none;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='#3a3a42'" onmouseout="this.style.borderColor='#26262c'">
       </div>
     </div>
   </div>
