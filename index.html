@@ -21,7 +21,9 @@ body{background:#0a0a0a;font-family:'Inter',system-ui,-apple-system,sans-serif;p
 .tab svg{width:14px;height:14px;flex-shrink:0;opacity:.85}
 .tab:hover{color:#aaa}
 .tab.active{background:var(--acc);color:var(--acc-ink);font-weight:600}
-.page{display:none}.page.active{display:block}
+.page{display:none}.page.active{display:block;animation:pageIn .28s ease}
+@keyframes pageIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.page.active{animation:none}}
 .dash-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:10px}
 .dash-title{font-size:22px;font-weight:700;color:#fff;letter-spacing:-.04em}
 .dash-sub{font-size:12px;color:#444;margin-top:3px;letter-spacing:-.01em}
@@ -33,7 +35,7 @@ input[type=date]{background:#141414;border:1px solid #1e1e1e;border-radius:7px;p
 input[type=date].active{border-color:var(--acc);color:var(--acc)}
 .kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:16px}
 .kpi{background:#111;border-radius:8px;padding:14px 14px 12px;border:1px solid #1a1a1a;border-top:2px solid transparent;transition:all .15s;display:flex;flex-direction:column;min-height:88px;box-shadow:0 1px 3px rgba(0,0,0,.3)}
-.kpi:hover{background:#141414;border-color:#242424}
+.kpi:hover{background:#141414;border-color:#242424;transform:translateY(-2px);box-shadow:0 8px 22px -12px rgba(0,0,0,.6)}
 .kpi-hero{background:linear-gradient(160deg,rgba(74,222,128,.10),transparent 72%);border-color:rgba(74,222,128,.35)}
 .kpi-hero .kpi-value{font-size:23px}
 .kpi-sec{font-size:10px;font-weight:600;color:#5a5a5a;text-transform:uppercase;letter-spacing:.07em;margin:2px 3px 9px}
@@ -3000,6 +3002,7 @@ function renderEditLog(){
 // ── Keyboard shortcuts ──
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){closeQuickAdd();closeGSearch();return;}
+  if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();var _ca=document.getElementById('page-ca');if(_ca&&_ca.classList.contains('active')&&typeof se==='function')se();return;}
   if(e.ctrlKey&&!e.shiftKey&&e.key==='k'){e.preventDefault();openQuickAdd();return;}
   if(e.ctrlKey&&e.shiftKey&&e.key==='F'){e.preventDefault();openGSearch();return;}
 });
