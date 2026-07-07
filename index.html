@@ -3114,8 +3114,8 @@ setUser(_currentUser);
   if(el)el.textContent="Entrée pour aujourd'hui — change la date si besoin";
 })();
 if('serviceWorker' in navigator){
-  // Désinscrit tout ancien service worker (le cache PWA gardait d'anciennes versions). On NE réenregistre PAS.
-  navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});
+  // Enregistre un service worker minimal (sans cache) → permet d'installer le site comme une app sur le PC.
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }
 (async () => {
   try {
