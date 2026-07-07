@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Shinra Finance">
 <link rel="manifest" href="manifest.json">
 <title>Shinra Finance</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
@@ -2325,61 +2326,123 @@ function walletHtml(v) {
 
 // ─── API RAILWAY ────────────────────────────────────────────────
 // 🔧 REMPLACE CETTE URL PAR TON URL RAILWAY APRÈS DÉPLOIEMENT
-const API_URL = 'https://crm-agency-production.up.railway.app';
+const API_URL = 'https://crm-agency-production.up.railway.app'; // ancien backend (plus utilise)
+// ── Supabase : nouvelle base gratuite (remplace Railway) ──
+const SUPABASE_URL = 'https://awsqamvhddyrumdyzlae.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3c3FhbXZoZGR5cnVtZHl6bGFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjQ4NjksImV4cCI6MjA5OTAwMDg2OX0.V6Jrxx-oz6sjt2L05YYj1zeYAChbjo45ueAO1g5dsd8';
+const SUPA_EMAIL = 'fadefluxagency@gmail.com';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+function entryFromDb(r){ return { id:r.id, date:r.date, brut:+r.brut, va:+r.va, mo:+r.mo, ci:+r.ci, ch:+r.ch, alT:+r.al_total, alI:r.al_items||[], profit:+r.profit, paidBy:r.paid_by||{}, notes:r.notes||'', author:r.author||'' }; }
+function entryToDb(e){ return { date:e.date, brut:e.brut||0, va:e.va||0, mo:e.mo||0, ci:e.ci||0, ch:e.ch||0, al_total:(e.alT!=null?e.alT:0), al_items:e.alI||[], profit:e.profit||0, paid_by:e.paidBy||{}, notes:e.notes||null, author:e.author||null }; }
+function vaFromDb(v){ return { _db_id:v.id, name:v.name, cat:v.cat, subs:v.subs, ca:+v.ca, net:+v.net, rate:+v.rate, bon:+v.bon, mal:+v.mal, pay:+v.pay, ltv:+v.ltv, ltvNet:+v.ltv_net, profit:+v.profit, pps:+v.pps, currentPeriod:v.current_period, wallet_address:v.wallet_address, last_paid_amount:v.last_paid_amount!=null?+v.last_paid_amount:0, last_paid_date:v.last_paid_date, total_paid:v.total_paid!=null?+v.total_paid:0, history:[], periods:[] }; }
+function vaToDb(v){ return { name:v.name, cat:v.cat||'Autre', subs:v.subs||0, ca:v.ca||0, net:v.net||0, rate:(v.rate!=null?v.rate:0.5), bon:v.bon||0, mal:v.mal||0, pay:v.pay||0, ltv:v.ltv||0, ltv_net:v.ltvNet||0, profit:v.profit||0, pps:v.pps||0, current_period:v.currentPeriod||null }; }
 
 let _apiConnected = false;
 
 function getToken() { return localStorage.getItem('crm_token') || ''; }
 
-function doLogin() {
+async function doLogin() {
   const val = document.getElementById('login-input').value.trim();
   if (!val) return;
-  localStorage.setItem('crm_token', val);
+  document.getElementById('login-error').textContent = 'Connexion…';
+  let error;
+  try { ({ error } = await sb.auth.signInWithPassword({ email: SUPA_EMAIL, password: val })); }
+  catch (e) { error = e; }
+  if (error) {
+    document.getElementById('login-input').value = '';
+    document.getElementById('login-error').textContent = 'Mot de passe incorrect';
+    return;
+  }
+  localStorage.setItem('crm_role', 'owner');
   document.getElementById('login-error').textContent = '';
-  checkAPI().then(ok => {
-    if (ok) {
-      document.getElementById('login-overlay').style.display = 'none';
-      applyRoleUI();
-      loadData().then(restoreTab);
-    } else {
-      localStorage.removeItem('crm_token');
-      document.getElementById('login-input').value = '';
-      document.getElementById('login-error').textContent = 'Mot de passe incorrect';
-    }
-  });
+  document.getElementById('login-overlay').style.display = 'none';
+  applyRoleUI();
+  loadData().then(restoreTab);
 }
 
-function doLogout() {
+async function doLogout() {
+  try { await sb.auth.signOut(); } catch (e) {}
   localStorage.removeItem('crm_token');
   location.reload();
 }
 
+// Traducteur : chaque ancien appel /api/... est redirige vers Supabase.
 async function apiFetch(path, options={}) {
-  const res = await fetch(API_URL + path, {
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-    ...options,
-  });
-  if (!res.ok) throw new Error(`API ${res.status}`);
-  return res.json();
+  const method = (options.method || 'GET').toUpperCase();
+  const body = options.body ? JSON.parse(options.body) : null;
+  const seg = path.split('?')[0];
+  if (seg === '/api/entries' && method === 'GET') {
+    const { data, error } = await sb.from('entries').select('*').order('date',{ascending:false}).order('created_at',{ascending:false});
+    if (error) throw error; return (data||[]).map(entryFromDb);
+  }
+  if (seg === '/api/entries' && method === 'POST') {
+    const { data, error } = await sb.from('entries').insert(entryToDb(body)).select().single();
+    if (error) throw error; return entryFromDb(data);
+  }
+  if (seg.indexOf('/api/entries/') === 0 && method === 'PUT') {
+    const id = seg.split('/').pop();
+    const { data, error } = await sb.from('entries').update(entryToDb(body)).eq('id', id).select().single();
+    if (error) throw error; return entryFromDb(data);
+  }
+  if (seg.indexOf('/api/entries/') === 0 && method === 'DELETE') {
+    const id = seg.split('/').pop();
+    const { error } = await sb.from('entries').delete().eq('id', id);
+    if (error) throw error; return { ok:true };
+  }
+  if (seg === '/api/va' && method === 'GET') {
+    const r1 = await sb.from('virtual_assistants').select('*').order('created_at',{ascending:true});
+    if (r1.error) throw r1.error;
+    const r2 = await sb.from('va_history').select('*');
+    const hist = r2.data || [];
+    return (r1.data||[]).map(v => {
+      const va = vaFromDb(v);
+      va.history = hist.filter(h=>h.va_id===v.id).map(h=>({ period:h.period_label, periodKey:h.period_key, range:h.range, month:h.month, year:h.year, subs:h.subs, ca:+h.ca, net:+h.net, rate:+h.rate, bon:+h.bon, mal:+h.mal, pay:+h.pay, ltv:+h.ltv, ltvNet:+h.ltv_net, profit:+h.profit, pps:+h.pps, cat:h.cat }));
+      va.periods = va.history.map(h=>({ period:h.period, profit:h.profit, subs:h.subs, pps:h.pps }));
+      return va;
+    });
+  }
+  if (seg === '/api/va/upsert' && method === 'POST') {
+    const he = body.historyEntry; const va = Object.assign({}, body); delete va.historyEntry;
+    const { data, error } = await sb.from('virtual_assistants').upsert(vaToDb(va), { onConflict:'name' }).select('id').single();
+    if (error) throw error;
+    if (he) {
+      const { error: e2 } = await sb.from('va_history').upsert({ va_id:data.id, period_label:he.period, period_key:he.periodKey, range:he.range, month:he.month, year:he.year, subs:he.subs, ca:he.ca, net:he.net, rate:he.rate, bon:he.bon, mal:he.mal, pay:he.pay, ltv:he.ltv, ltv_net:he.ltvNet, profit:he.profit, pps:he.pps, cat:he.cat }, { onConflict:'va_id,period_key' });
+      if (e2) throw e2;
+    }
+    return { ok:true, id:data.id };
+  }
+  if (seg.indexOf('/api/va/') === 0 && method === 'DELETE') {
+    const name = decodeURIComponent(seg.split('/').pop());
+    const { error } = await sb.from('virtual_assistants').delete().eq('name', name);
+    if (error) throw error; return { ok:true };
+  }
+  if (seg === '/api/wallets' && method === 'GET') {
+    const { data, error } = await sb.from('virtual_assistants').select('name,wallet_address,last_paid_amount,last_paid_date,total_paid').not('wallet_address','is',null);
+    if (error) return []; return (data||[]).map(w=>({ name:w.name, wallet_address:w.wallet_address, last_paid_amount:w.last_paid_amount!=null?+w.last_paid_amount:0, last_paid_date:w.last_paid_date, total_paid:w.total_paid!=null?+w.total_paid:0 }));
+  }
+  if (seg === '/api/settings' && method === 'GET') {
+    const { data, error } = await sb.from('settings').select('*');
+    if (error) throw error; const o={}; (data||[]).forEach(s=>o[s.key]=s.value); return o;
+  }
+  if (seg === '/api/settings' && method === 'POST') {
+    const { error } = await sb.from('settings').upsert({ key:body.key, value:String(body.value) }, { onConflict:'key' });
+    if (error) throw error; return { ok:true };
+  }
+  if (seg === '/api/settings/notify-discord') { return { ok:true }; }
+  throw new Error('Route non supportee: ' + method + ' ' + seg);
 }
 
 async function checkAPI() {
   try {
-    const res = await fetch(API_URL + '/api/ping', {
-      headers: { 'Authorization': `Bearer ${getToken()}` }
-    });
-    if (!res.ok) throw new Error(`${res.status}`);
-    const data = await res.json().catch(() => ({}));
-    if (data && data.role) localStorage.setItem('crm_role', data.role);
-    _apiConnected = true;
+    const { data: { session } } = await sb.auth.getSession();
+    _apiConnected = !!session;
     const dot = document.getElementById('api-dot');
-    if (dot) { dot.style.background = '#4ade80'; dot.title = 'API connectée'; }
-    return true;
+    if (dot) { dot.style.background = session ? '#4ade80' : '#f87171'; dot.title = session ? 'Connecté (Supabase)' : 'Déconnecté'; }
+    return !!session;
   } catch {
     _apiConnected = false;
     const dot = document.getElementById('api-dot');
-    if (dot) { dot.style.background = '#f87171'; dot.title = 'API déconnectée — données locales'; }
-    showSaveStatus('⚠ Hors ligne — données locales', '#facc15');
+    if (dot) { dot.style.background = '#f87171'; dot.title = 'Déconnecté'; }
     return false;
   }
 }
@@ -3055,18 +3118,16 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});
 }
 (async () => {
-  const token = getToken();
-  if (token) {
-    const ok = await checkAPI();
-    if (ok) {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      localStorage.setItem('crm_role', 'owner');
       document.getElementById('login-overlay').style.display = 'none';
       applyRoleUI();
       await loadData();
       restoreTab();
-    } else {
-      localStorage.removeItem('crm_token');
     }
-  }
+  } catch (e) { console.warn('Init auth', e); }
 })();
 </script>
 </body>
