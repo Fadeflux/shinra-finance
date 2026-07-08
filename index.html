@@ -1208,6 +1208,9 @@ function renderRapprochement(){
       </div>`).join('')}`;
 }
 
+function _saveVirements(){
+  try{ apiFetch('/api/settings',{method:'POST',body:JSON.stringify({key:'virements',value:JSON.stringify(virements)})}).catch(()=>{}); }catch(e){}
+}
 function addVirement(){
   const date=document.getElementById('vir-date')?.value||ts();
   const amount=parseFloat(document.getElementById('vir-amount')?.value)||0;
@@ -1216,12 +1219,12 @@ function addVirement(){
   virements.unshift({date,amount,note});
   document.getElementById('vir-amount').value='';
   document.getElementById('vir-note').value='';
-  renderVirements();saveData();
+  renderVirements();saveData();_saveVirements();
 }
 
 function deleteVirement(i){
   virements.splice(i,1);
-  renderVirements();saveData();
+  renderVirements();saveData();_saveVirements();
 }
 
 function setHistPayerFilter(v,btn){
@@ -2461,6 +2464,8 @@ async function loadData() {
       ents = apiEnts;
       vas = apiVas;
       virements = apiSettings?.virements ? JSON.parse(apiSettings.virements) : [];
+      // Récupération : cloud vide mais virements en cache navigateur (ancien bug) -> on restaure et on pousse au cloud
+      if(!virements.length){ try{ const _lv=await window.storage.get('crm_virements'); const _pv=_lv?JSON.parse(_lv.value):[]; if(_pv&&_pv.length){ virements=_pv; _saveVirements(); } }catch(_e){} }
       // Merge wallet data into VA objects
       if (Array.isArray(apiWallets)) {
         apiWallets.forEach(w => {
@@ -2514,6 +2519,7 @@ async function saveData() {
     await window.storage.set('crm_modeles', JSON.stringify(modeles));
     await window.storage.set('crm_editlog', JSON.stringify(editLog));
   } catch {}
+  try{_saveVirements();}catch(e){}
   showSaveStatus('✓ Sauvegardé');
 }
 
