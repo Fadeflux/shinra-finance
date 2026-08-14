@@ -2,7 +2,6 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="robots" content="noindex, nofollow, noarchive"><!-- finance privée : jamais indexée (2026-08-10) -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0a0a0a" id="theme-color-meta">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -570,7 +569,13 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
         <div class="panel-title">⚖ Rapprochement associé</div>
         <div class="panel-sub" style="margin-bottom:0">répartition exacte — qui doit quoi à qui</div>
       </div>
-      <button onclick="document.getElementById('rapprochement-detail').style.display=document.getElementById('rapprochement-detail').style.display==='none'?'block':'none'" style="background:#1a1a1a;border:0.5px solid #2a2a2a;border-radius:6px;padding:5px 12px;color:#666;font-size:11px;cursor:pointer">Détail ▾</button>
+      <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+        <span style="font-size:10px;color:#777;text-transform:uppercase;letter-spacing:.04em">Jusqu'au</span>
+        <input type="date" id="rapp-cutoff" onchange="renderVirements()" style="background:#111;border:0.5px solid #333;border-radius:6px;padding:5px 8px;color:#ccc;font-size:11px;outline:none">
+        <button onclick="var d=new Date();d.setDate(d.getDate()-7);document.getElementById('rapp-cutoff').value=d.toISOString().slice(0,10);renderVirements()" title="Exclure les 7 derniers jours (argent OnlyFans encore en attente)" style="background:#1a1a1a;border:0.5px solid #2a2a2a;border-radius:6px;padding:5px 9px;color:#facc15;font-size:10px;cursor:pointer;font-weight:600">−7 j</button>
+        <button onclick="document.getElementById('rapp-cutoff').value='';renderVirements()" title="Inclure tout" style="background:#1a1a1a;border:0.5px solid #2a2a2a;border-radius:6px;padding:5px 9px;color:#888;font-size:10px;cursor:pointer">Tout</button>
+        <button onclick="document.getElementById('rapprochement-detail').style.display=document.getElementById('rapprochement-detail').style.display==='none'?'block':'none'" style="background:#1a1a1a;border:0.5px solid #2a2a2a;border-radius:6px;padding:5px 12px;color:#666;font-size:11px;cursor:pointer">Détail ▾</button>
+      </div>
     </div>
     <div id="rapprochement-content"><div class="emsg">Aucune donnée</div></div>
     <div id="rapprochement-detail" style="display:none;margin-top:10px;padding-top:10px;border-top:0.5px solid #222">
@@ -1131,8 +1136,10 @@ function renderRiskPanel(pool){
 }
 
 function getGlobalBalance(){
+  const cutoff=document.getElementById('rapp-cutoff')?.value||'';
   let myAdv=0,assocAdv=0,totalProfit=0;
   ents.forEach(e=>{
+    if(cutoff && e.date>cutoff) return;
     const pb=e.paidBy||{};
     ['va','mo','ci','ch'].forEach(k=>{const amt=e[k]||0;if(pb[k]==='associe')assocAdv+=amt;else myAdv+=amt;});
     (e.alI||[]).forEach(ai=>{if(ai.paidBy==='associe')assocAdv+=ai.val;else myAdv+=ai.val;});
@@ -1172,6 +1179,8 @@ function renderRapprochement(){
   if(!el)return;
   if(!ents.length){el.innerHTML='<div class="emsg">Aucune entrée enregistrée</div>';return;}
   const b=getGlobalBalance();
+  const _rc=document.getElementById('rapp-cutoff')?.value||'';
+  const cutoffTxt=_rc?` <span style="color:#facc15">· jusqu'au ${dl(_rc)} (hors argent en attente)</span>`:'';
   const totalVirements=virements.reduce((s,v)=>s+(v.amount||0),0);
   // Ce que l'associé doit à Moi = mes avances + 50% profit
   const moiDroit=b.myAdv+b.halfProfit;
@@ -1198,7 +1207,7 @@ function renderRapprochement(){
     <div style="background:#0e0e0e;border-radius:8px;padding:12px 14px;border:0.5px solid #222;border-left:3px solid ${sc}">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
         <div>
-          <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Solde net (ce qu'il t'a envoyé vs ce qu'il doit)</div>
+          <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Solde net (ce qu'il t'a envoyé vs ce qu'il doit)${cutoffTxt}</div>
           <div style="font-size:22px;font-weight:700;color:${sc}">${soldeNet>=0?fmtR(soldeNet):'-'+fmtR(-soldeNet)}</div>
         </div>
         <div style="text-align:right">
