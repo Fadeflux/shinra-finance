@@ -349,7 +349,7 @@ input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1}
 body.light .vasg .kpi .kpi-value{color:#18181b!important}
 body.light #vspr{color:#15a349!important}
 body.readonly #ro-badge{display:inline-flex!important}
-body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [onclick*="saveData"],body.readonly [onclick*="openQuickAdd"],body.readonly .abtn,body.readonly .avabtn,body.readonly .arm,body.readonly .varm,body.readonly [onclick*="addVirement"],body.readonly [onclick*="addModelePayment"],body.readonly [onclick*="rmModele"],body.readonly [onclick*="editLog=[]"]{display:none!important}
+body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [onclick*="saveData"],body.readonly [onclick*="openQuickAdd"],body.readonly .abtn,body.readonly .avabtn,body.readonly .arm,body.readonly .varm,body.readonly [onclick*="addVirement"],body.readonly [onclick*="addModelePayment"],body.readonly [onclick*="rmModele"],body.readonly [onclick*="clearEditLog"]{display:none!important}
 </style>
 </head>
 <body>
@@ -652,7 +652,7 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
       </div>
       <textarea class="ifield" id="entry-notes" placeholder="Ex: bonne période, pub bien performé…" rows="2" style="resize:vertical;line-height:1.5"></textarea>
     </div>
-    <button class="sbtn" onclick="se()" onkeydown="if(event.key==='Enter')se()"><span id="sbtn-text">+ Enregistrer cette entrée</span></button>
+    <button class="sbtn" onclick="se()"><span id="sbtn-text">+ Enregistrer cette entrée</span></button>
     <div id="se-msg" style="font-size:12px;text-align:center;min-height:16px;margin-top:8px;opacity:0;transition:opacity .2s"></div>
   </div>
   <div class="g2">
@@ -977,11 +977,14 @@ function addModele(){
   if(existing){existing.platform=platform;existing.split_pct=split;existing.start=start;existing.notes=notes;}
   else{modeles.push({id:Date.now(),name,platform,split_pct:split,start,notes,payments:[]});}
   ['mod-name','mod-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  renderModeles();saveData();
+  renderModeles();_saveModeles();saveData();
 }
-function rmModele(id){
+async function rmModele(id){
+  const m=modeles.find(x=>x.id===id); if(!m)return;
+  if(!await showConfirm('Supprimer le modele '+m.name+' et tout son historique de paiements ?'))return;
+  logEdit('Suppression modele', m.name);
   modeles=modeles.filter(m=>m.id!==id);
-  renderModeles();saveData();
+  renderModeles();_saveModeles();saveData();
 }
 function addModelePayment(id){
   const m=modeles.find(x=>x.id===id);if(!m)return;
@@ -993,15 +996,18 @@ function addModelePayment(id){
   m.payments.unshift({date,amount,note});
   document.getElementById('mpa-'+id).value='';
   document.getElementById('mpn-'+id).value='';
-  renderModeles();saveData();
+  renderModeles();_saveModeles();saveData();
 }
-function rmModelePayment(modelId,idx){
+async function rmModelePayment(modelId,idx){
   const m=modeles.find(x=>x.id===modelId);if(!m||!m.payments)return;
+  const p=m.payments[idx]; if(!p)return;
+  if(!await showConfirm('Supprimer ce paiement de '+fmtR(p.amount)+' a '+m.name+' ?'))return;
+  logEdit('Suppression paiement modele', m.name+' - '+fmtR(p.amount));
   m.payments.splice(idx,1);
-  renderModeles();saveData();
+  renderModeles();_saveModeles();saveData();
 }
 function renderModeles(){
-  const totalNet=ents.reduce((s,e)=>s+e.brut*0.78,0);
+  const totalNet=ents.reduce((s,e)=>s+(e.brut||0)*0.78,0);
   const totalDu=modeles.reduce((s,m)=>s+totalNet*(m.split_pct/100),0);
   // Le champ « Paiement Modèle » des entrées (e.mo) est de l argent REELLEMENT verse
   // aux modeles : sans le compter ici, la page affichait « reste a payer » alors que
@@ -1140,7 +1146,7 @@ function renderRiskPanel(pool){
         <div style="background:#1a1a1a;border-radius:3px;height:6px;position:relative">
           <div style="width:${Math.min(100,pct)}%;height:6px;border-radius:3px;background:${barColor};transition:width .4s"></div>
         </div>
-        <div style="font-size:10px;color:#444;margin-top:2px">profit : <span style="color:${v.profit>=0?'#4ade80':'#f87171'}">${v.profit>=0?'+':''}${fmtR(v.profit)}</span> · ${profitPct.toFixed(1)}% du profit total</div>
+        <div style="font-size:10px;color:#444;margin-top:2px">profit : <span style="color:${v.profit>=0?'#4ade80':'#f87171'}">${v.profit>=0?'+':''}${fmtS(v.profit)}</span> · ${profitPct.toFixed(1)}% du profit total</div>
       </div>`;
     }).join('')}
     ${sorted.length>10?`<div style="font-size:10px;color:#444;text-align:center;padding:4px">+ ${sorted.length-10} autres VA</div>`:''}
@@ -1173,8 +1179,8 @@ function renderVirements(){
   const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
   const resteEl=document.getElementById('vir-reste');
   if(resteEl){resteEl.textContent=b.reste>=0?fmtR(b.reste):'-'+fmtR(-b.reste);resteEl.style.color=b.reste<=0?'#4ade80':'#f87171';}
-  set('vir-du',fmtR(b.totalDu));
-  set('vir-du-det',`avances ${fmtR(b.myAdv)} + 50% profit ${fmtR(b.halfProfit)}`);
+  set('vir-du',fmtS(b.totalDu));
+  set('vir-du-det',`avances ${fmtS(b.myAdv)} + 50% profit ${fmtS(b.halfProfit)}`);
   set('vir-recu',fmtR(b.totalRecu));
   set('vir-recu-nb',virements.length+' virement(s)');
   set('vir-reste-det',b.reste<=0?'✅ Tout reçu !':fmtR(b.reste)+' encore dû');
@@ -1212,13 +1218,13 @@ function renderRapprochement(){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
       <div style="background:#0e0e0e;border-radius:7px;padding:10px 12px;border:0.5px solid #1e1e1e;border-top:2px solid #60a5fa">
         <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Moi — à recevoir</div>
-        <div style="font-size:20px;font-weight:700;color:#60a5fa">${fmtR(moiDroit)}</div>
-        <div style="font-size:10px;color:#3a3a3a;margin-top:3px">avances ${fmtR(b.myAdv)} + profit ${fmtR(b.halfProfit)}</div>
+        <div style="font-size:20px;font-weight:700;color:#60a5fa">${fmtS(moiDroit)}</div>
+        <div style="font-size:10px;color:#3a3a3a;margin-top:3px">avances ${fmtS(b.myAdv)} + profit ${fmtS(b.halfProfit)}</div>
       </div>
       <div style="background:#0e0e0e;border-radius:7px;padding:10px 12px;border:0.5px solid #1e1e1e;border-top:2px solid #e879f9">
         <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Associé — son droit</div>
-        <div style="font-size:20px;font-weight:700;color:#e879f9">${fmtR(assocDroit)}</div>
-        <div style="font-size:10px;color:#3a3a3a;margin-top:3px">avances ${fmtR(b.assocAdv)} + profit ${fmtR(b.halfProfit)}</div>
+        <div style="font-size:20px;font-weight:700;color:#e879f9">${fmtS(assocDroit)}</div>
+        <div style="font-size:10px;color:#3a3a3a;margin-top:3px">avances ${fmtS(b.assocAdv)} + profit ${fmtS(b.halfProfit)}</div>
       </div>
     </div>
     <div style="background:#0e0e0e;border-radius:8px;padding:12px 14px;border:0.5px solid #222;border-left:3px solid ${sc}">
@@ -1273,7 +1279,10 @@ function addVirement(){
   renderVirements();saveData();_saveVirements();
 }
 
-function deleteVirement(i){
+async function deleteVirement(i){
+  const v=virements[i]; if(!v)return;
+  if(!await showConfirm('Supprimer ce virement de '+fmtR(v.amount)+' ? Cette action est irreversible.'))return;
+  logEdit('Suppression virement', dl(v.date)+' - '+fmtR(v.amount));
   virements.splice(i,1);
   renderVirements();saveData();_saveVirements();
 }
@@ -1321,7 +1330,7 @@ function getROI(v){
 function logEdit(action,detail){
   editLog.unshift({ts:new Date().toISOString(),action,detail});
   if(editLog.length>200)editLog.pop();
-  saveData();
+  _saveEditLog();saveData();
 }
 const alertDefs=[
   {key:'perte',   ic:'🔴', l:'en perte',     titre:'VA en perte',          c:'#f87171', bg:'#2d1a1a', bd:'#f87171', test:v=>v.profit<0},
@@ -1626,7 +1635,9 @@ function renderInsights(){
   el.innerHTML=items.map(i=>'<span style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:#c8c8cc"><span style="font-size:15px">'+i.ic+'</span><span style="border-left:2px solid '+i.c+';padding-left:9px">'+i.t+'</span></span>').join('');
 }
 function uk(){
-  const f=gf();
+  // En mode edition, l entree editee est deja dans `ents` ET dans le formulaire :
+  // sans l exclure, tous les KPI la comptaient DEUX fois (CA 3000 -> 6000 des le clic sur crayon).
+  const f=gf().filter(e=>!(_editingId && e.id===_editingId));
   const _empty=ents.length===0;
   const _es=document.getElementById('empty-state');if(_es)_es.style.display=_empty?'block':'none';
   document.querySelectorAll('#page-ca .kpi-sec,#page-ca .kpi-hero-grid,#page-ca .kpi-dep-grid').forEach(x=>{x.style.display=_empty?'none':'';});
@@ -1766,7 +1777,7 @@ function rh(){
     const grp=(ttl,arr,tot,col)=>arr.length?`<div style="flex:1;min-width:150px"><div style="font-size:10px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;display:flex;justify-content:space-between"><span>${ttl}</span><span>${fmtR(tot)}</span></div>${arr.slice().sort((a,b)=>(b.val||0)-(a.val||0)).map(x=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:11px;color:#9a9aa0;padding:2px 0;border-bottom:0.5px solid #171719"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</span><b style="color:#ccc;white-space:nowrap">${fmtR(x.val)}</b></div>`).join('')}</div>`:'';
     const miscHtml=alL.length?`<div style="margin-top:6px"><button type="button" onclick="var d=document.getElementById('misc-${ri}');var o=d.style.display==='none';d.style.display=o?'flex':'none';this.querySelector('.cv').textContent=o?'▴':'▾'" style="background:#161619;border:1px solid #26262c;border-radius:7px;padding:5px 11px;color:#aaa;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:8px">🧾 <b style="color:#ddd">${alL.length} dépense${alL.length>1?'s':''} diverse${alL.length>1?'s':''}</b> · <b style="color:#ddd">${fmtR(alTot)}</b>${alMoiT>0?` · <span style="color:#60a5fa">Moi ${fmtR(alMoiT)}</span>`:''}${alAssoT>0?` · <span style="color:#e879f9">Asso ${fmtR(alAssoT)}</span>`:''} <span class="cv" style="color:#666;font-size:10px">▾</span></button><div id="misc-${ri}" style="display:none;gap:22px;flex-wrap:wrap;background:#0e0e0f;border:1px solid #1e1e22;border-radius:8px;padding:11px 14px;margin-top:5px">${grp('Payé par Moi',alMoi,alMoiT,'#60a5fa')}${grp('Payé par Associé',alAsso,alAssoT,'#e879f9')}</div></div>`:'';
     const notesHtml=e.notes?`<div style="font-size:10px;color:#555;margin-top:3px;font-style:italic">💬 ${esc(e.notes)}</div>`:'';
-    return `<div class="txrow"><div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0"><span class="txdb">${dl(e.date)}</span>${e.author?`<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#1a1a1e;color:#8a8a90;border:0.5px solid #2a2a2a;margin-left:4px">${e.author}</span>`:''}<div><div style="font-size:13px;color:#bbb">CA ${fmtR(e.brut)}</div><div style="font-size:11px;color:#444;margin-top:2px;line-height:1.7"><span style="color:#facc15">VA ${fmtR(e.va)}${pbTag(e.va,'va')}</span> · <span style="color:#a78bfa">Modèle ${fmtR(e.mo)}${pbTag(e.mo,'mo')}</span> · <span style="color:#22d3ee">Chat IA ${fmtR(e.ci)}${pbTag(e.ci,'ci')}</span> · <span style="color:#fb923c">Chat Hum. ${fmtR(e.ch)}${pbTag(e.ch,'ch')}</span></div>${miscHtml}${notesHtml}</div></div><div style="display:flex;align-items:center;gap:8px"><div style="text-align:right"><div style="font-size:13px;font-weight:500;color:${e.profit>=0?'#4ade80':'#f87171'}">${e.profit>=0?'+':''}${fmtR(e.profit)}</div><div style="font-size:10px;color:#444;margin-top:2px">${mg}% marge</div></div><div class="row-actions"><button onclick="window.quickNote(${ri})" title="${e.notes?'Note (cliquer pour éditer)':'Ajouter une note partagée'}" style="color:${e.notes?'#4ade80':'#444'}">💬</button><button onclick="window.editEntry(${ri})" title="Modifier" style="color:#facc15">✏</button><button onclick="window.duplicateEntry(${ri})" title="Dupliquer" style="color:#60a5fa">⎘</button><button onclick="deleteEntry(${ri})" title="Supprimer" style="color:#444">✕</button></div></div></div>`;
+    return `<div class="txrow"><div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0"><span class="txdb">${dl(e.date)}</span>${e.author?`<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#1a1a1e;color:#8a8a90;border:0.5px solid #2a2a2a;margin-left:4px">${e.author}</span>`:''}<div><div style="font-size:13px;color:#bbb">CA ${fmtR(e.brut)}</div><div style="font-size:11px;color:#444;margin-top:2px;line-height:1.7"><span style="color:#facc15">VA ${fmtR(e.va)}${pbTag(e.va,'va')}</span> · <span style="color:#a78bfa">Modèle ${fmtR(e.mo)}${pbTag(e.mo,'mo')}</span> · <span style="color:#22d3ee">Chat IA ${fmtR(e.ci)}${pbTag(e.ci,'ci')}</span> · <span style="color:#fb923c">Chat Hum. ${fmtR(e.ch)}${pbTag(e.ch,'ch')}</span></div>${miscHtml}${notesHtml}</div></div><div style="display:flex;align-items:center;gap:8px"><div style="text-align:right"><div style="font-size:13px;font-weight:500;color:${e.profit>=0?'#4ade80':'#f87171'}">${e.profit>=0?'+':''}${fmtS(e.profit)}</div><div style="font-size:10px;color:#444;margin-top:2px">${mg}% marge</div></div><div class="row-actions"><button onclick="window.quickNote(${ri})" title="${e.notes?'Note (cliquer pour éditer)':'Ajouter une note partagée'}" style="color:${e.notes?'#4ade80':'#444'}">💬</button><button onclick="window.editEntry(${ri})" title="Modifier" style="color:#facc15">✏</button><button onclick="window.duplicateEntry(${ri})" title="Dupliquer" style="color:#60a5fa">⎘</button><button onclick="deleteEntry(${ri})" title="Supprimer" style="color:#444">✕</button></div></div></div>`;
   }).join('');
   const pg=document.getElementById('hist-pagination');
   pg.innerHTML=totalPages>1?`<button onclick="_histPage=Math.max(0,_histPage-1);rh()" ${_histPage===0?'disabled':''}>‹ Préc.</button><span>${_histPage+1} / ${totalPages}</span><button onclick="_histPage=Math.min(${totalPages-1},_histPage+1);rh()" ${_histPage>=totalPages-1?'disabled':''}>Suiv. ›</button>`:'';
@@ -2155,7 +2166,7 @@ function rv(){
   set('vsnet',fmtR(tnet));
   set('vspa',fmtR(tpa));
   set('vspap',tnet>0?Math.round(tpa/tnet*100)+'% du net':'–');
-  set('vspr',fmtR(tnp));
+  set('vspr',fmtS(tnp));
   set('vsprp',tnet>0?Math.round(tnp/tnet*100)+'% marge nette':'–');
   set('vsltv',fmt(altv));
   set('vsltvnet',fmt(altvNet));
@@ -2275,7 +2286,7 @@ function renderVA(filteredVas, flt){
     const trendBadge=(evo&&evo.profit!==null)?`<span title="Tendance du profit vs période précédente" style="display:inline-flex;align-items:center;gap:2px;font-size:11px;font-weight:700;color:${evo.profit>0?'#4ade80':evo.profit<0?'#f87171':'#888'}">${evo.profit>0?'↗':evo.profit<0?'↘':'→'}${evo.profit>0?'+':''}${evo.profit}%</span>`:'';
     return `<div class="vacard" style="border-color:${bc}">
       <div class="rnkb" style="font-size:${gr<=3?'17px':'11px'}">${medal}</div>
-      <button class="varm" onclick="rmVA(${ri})">×</button>
+      <button class="varm" onclick="rmVAByName(&quot;${esc(v.name)}&quot;)">×</button>
       <div class="vach" style="padding-left:28px">
         <div class="vaav" style="background:${cb};color:${cc}">${ini}</div>
         <div><div class="vacn">${esc(v.name)}${periodBadge}</div><div class="vacs">${lh}<span class="cbdg" style="background:${cb};color:${cc}">${v.cat}</span><span class="${rc.c}">${rc.l}</span>${actBadge}${trendBadge}</div></div>
@@ -2845,6 +2856,10 @@ function importData(e) {
       if (d.virements) virements = d.virements;
       if (d.modeles) modeles = d.modeles;
       rh(); rc(); uk(); rv(); renderVirements(); renderModeles();
+      // Les listes importees doivent etre marquees comme modifiees, sinon saveData()
+      // (qui ne pousse plus que les listes changees) les laissait de cote et l ancienne
+      // version du cloud revenait au rechargement suivant.
+      if(d.virements)_saveVirements(); if(d.modeles)_saveModeles();
       await saveData();
       // Les entrées importées doivent VRAIMENT repartir au cloud, sinon l'import
       // n'existait qu'en mémoire et disparaissait au rechargement suivant.
@@ -3047,13 +3062,24 @@ window.addVA = function() {
   rv(); saveData();
 };
 
-window.rmVA = async function(i) {
-  const name = vas[i]?.name;
+// Suppression par NOM et non par index : dès qu'un filtre de période est actif,
+// getVAForPeriod renvoie une COPIE du VA, donc vas.indexOf(...) valait −1 et
+// vas.splice(-1,1) supprimait le DERNIER VA de la liste (avec le message
+// « Supprimer le VA "undefined" »). Le nom, lui, reste fiable.
+window.rmVAByName = async function(name) {
+  const i = vas.findIndex(v => v && v.name === name);
+  if (i < 0) { showSaveStatus('⚠ VA introuvable — recharge la page', '#f87171'); return; }
   if (!await showConfirm(`Supprimer le VA "${name}" et tout son historique ?`)) return;
   logEdit('Suppression VA', name);
   vas.splice(i,1); rv();
-  if (name) deleteVAAPI(name);
+  deleteVAAPI(name);
   saveData();
+};
+// Conservée pour compatibilité (ancien appel par index).
+window.rmVA = async function(i) {
+  const name = vas[i]?.name;
+  if (!name) { showSaveStatus('⚠ VA introuvable — recharge la page', '#f87171'); return; }
+  return window.rmVAByName(name);
 };
 
 window.deleteEntry = async function(idx) {
@@ -3063,7 +3089,11 @@ window.deleteEntry = async function(idx) {
   if (realIdx >= 0) {
     const id = entry?.id;
     logEdit('Suppression entrée', `${dl(entry.date)} · CA ${fmt(entry.brut)}`);
+    // Si on supprime l'entrée EN COURS d'édition, il faut quitter le mode édition :
+    // sinon le bandeau restait et valider écrivait dans le vide (saisie perdue en silence).
+    if (_editingId && id === _editingId) { try{ cancelEdit(); }catch(e){ _editingId=null; } }
     ents.splice(realIdx,1); rh(); rc(); uk();
+    try{ renderVirements(); }catch(e){}   // le rapprochement dépend de ents
     if (id) deleteEntryAPI(id);
     saveData();
   }
@@ -3140,7 +3170,7 @@ function runGSearch(q){
     if((m.name||'').toLowerCase().includes(q)||(m.platform||'').toLowerCase().includes(q)||(m.notes||'').toLowerCase().includes(q))
       hits.push({type:'Modèle',color:'#f472b6',label:`${esc(m.name||'—')} — ${m.platform||''} · split ${m.split||'?'}%`,action:`document.querySelector('.tab[onclick*=\\'modeles\\']').click()`});
   });
-  if(!hits.length){res.innerHTML='<div style="font-size:12px;color:#444;text-align:center;padding:16px">Aucun résultat pour "'+q+'"</div>';return;}
+  if(!hits.length){res.innerHTML='<div style="font-size:12px;color:#444;text-align:center;padding:16px">Aucun résultat pour "'+esc(q)+'"</div>';return;}
   res.innerHTML=hits.slice(0,30).map(h=>`<div class="gsr-item" onclick="${h.action};closeGSearch()"><span class="gsr-tag" style="background:#1a1a1a;color:${h.color}">${h.type}</span><span style="font-size:12px;color:#ccc">${h.label}</span></div>`).join('');
 }
 
