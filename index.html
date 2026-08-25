@@ -1699,21 +1699,10 @@ function uk(){
   renderDayEvolution();
   renderForecast();
 }
-function se(){
-  const br=gv('ib');if(!br){alert('Entre au moins un CA Brut');return;}
-  const va=gv('iv'),mo=gv('im'),ci=gv('ici'),ch=gv('ich');
-  const alI=gai(),alT=alI.reduce((s,i)=>s+i.val,0);
-  const date=acd||ts();
-  const profit=Math.round(br*.78-va-mo-ci-ch-alT);
-  ents.unshift({date,brut:br,va,mo,ci,ch,alI,alT,profit});
-  ['ib','iv','im','ici','ich'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('ainps').innerHTML='';afs=[];afc=0;
-  rh();rc();uk();
-}
-function deleteEntry(idx){
-  const realIdx=ents.indexOf(gf()[idx]);
-  if(realIdx>=0){ents.splice(realIdx,1);rh();rc();uk();}
-}
+// (Anciennes versions de se() et deleteEntry() supprimées : elles étaient écrasées
+//  plus bas dans le fichier et ne s'exécutaient jamais. Elles ignoraient les payeurs,
+//  les notes et la sauvegarde cloud — piège pour toute modification future faite au
+//  mauvais endroit.)
 function rh(){
   // `base` = liste NON filtrée : c'est elle que visent les boutons (✏ ⎘ ✕ 💬) via gf()[idx].
   // Sans ça, dès qu'une recherche ou un filtre payeur réduit la liste, les index se
@@ -1795,56 +1784,9 @@ function pp(){
   document.getElementById('pppv').textContent=fmt(p);
   document.getElementById('pppd').textContent=`$${r.toFixed(2)} × ${s} subs + $${b} − $${m}`;
 }
-function addVA(){
-  const name=document.getElementById('van').value.trim()||'VA sans nom';
-  const cat=document.getElementById('vac').value;
-  const subs=parseFloat(document.getElementById('vasubs').value)||0;
-  const ca=parseFloat(document.getElementById('vaca').value)||0;
-  const rate=parseFloat(document.getElementById('varate').value)||0.5;
-  const bon=parseFloat(document.getElementById('vabon').value)||0;
-  const mal=parseFloat(document.getElementById('vamal').value)||0;
-  const pay=Math.max(0,subs*rate+bon-mal);
-  const net=parseFloat((ca*0.78).toFixed(2));
-  const ltv=subs>0?ca/subs:0;
-  const ltvNet=subs>0?net/subs:0;
-  const profit=parseFloat((net-pay).toFixed(2));
-  const pps=subs>0?parseFloat((profit/subs).toFixed(4)):0;
-  const period=document.getElementById('vaperiod').value;
-  const month=parseInt(document.getElementById('vamonth').value);
-  const year=parseInt(document.getElementById('vayear').value);
-  const range=period;
-  const periodKey=`${year}-${String(month).padStart(2,'0')}-${range}`;
-  const months=['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc'];
-  const periodLabel=`${range} ${months[month-1]} ${year}`;
-  const entry={period:periodLabel,periodKey,range,month,year,profit,subs,pps,ca,net,rate,bon,mal,pay,ltv,ltvNet,cat};
-
-  const existing=vas.find(v=>v.name.toLowerCase()===name.toLowerCase());
-  if(existing){
-    const idx=existing.history.findIndex(h=>h.periodKey===periodKey);
-    if(idx>=0){existing.history[idx]=entry;}
-    else{existing.history.push(entry);}
-    existing.history.sort((a,b)=>a.year!==b.year?a.year-b.year:a.month!==b.month?a.month-b.month:a.range.localeCompare(b.range));
-    const last=existing.history[existing.history.length-1];
-    existing.cat=last.cat; existing.subs=last.subs; existing.ca=last.ca;
-    existing.net=last.net; existing.rate=last.rate; existing.bon=last.bon;
-    existing.mal=last.mal; existing.pay=last.pay; existing.ltv=last.ltv;
-    existing.ltvNet=last.ltvNet; existing.profit=last.profit; existing.pps=last.pps;
-    existing.currentPeriod=last.period;
-    existing.periods=existing.history.map(h=>({period:h.period,profit:h.profit,subs:h.subs,pps:h.pps}));
-  } else {
-    vas.push({name,cat,subs,ca,net,rate,bon,mal,pay,ltv,ltvNet,profit,pps,
-      history:[entry],
-      periods:[{period:periodLabel,profit,subs,pps}],
-      currentPeriod:periodLabel});
-  }
-
-  ['van','vasubs','vaca','vabon','vamal'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('varate').value='0.5';
-  document.getElementById('pppv').textContent='$0.00';
-  document.getElementById('pppd').textContent='prix × subs + bonus − malus';
-  rv();
-}
-function rmVA(i){vas.splice(i,1);rv();}
+// (Anciennes versions de addVA() et rmVA() supprimees : elles etaient ecrasees plus bas
+//  par window.addVA / window.rmVA et ne s executaient jamais. Elles n enregistraient
+//  rien dans le cloud et ne demandaient aucune confirmation avant suppression.)
 
 function getPeriodFilter(){
   const fm=document.getElementById('filter-month')?.value||'';
@@ -2362,7 +2304,19 @@ const API_URL = 'https://crm-agency-production.up.railway.app'; // ancien backen
 const SUPABASE_URL = 'https://awsqamvhddyrumdyzlae.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3c3FhbXZoZGR5cnVtZHl6bGFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjQ4NjksImV4cCI6MjA5OTAwMDg2OX0.V6Jrxx-oz6sjt2L05YYj1zeYAChbjo45ueAO1g5dsd8';
 const SUPA_EMAIL = 'fadefluxagency@gmail.com';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+// Garde CDN : si cdn.jsdelivr est bloque (bloqueur de pub, coupure, panne), window.supabase
+// est absent. Sans cette garde, l exception ici stoppait TOUT le script racine :
+// window.editEntry / duplicateEntry / deleteEntry / addVA n etaient jamais definis et
+// l application restait morte, sans le moindre message.
+const sb = (function(){
+  try { return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON); }
+  catch(e){ console.error('Supabase indisponible', e); return null; }
+})();
+// Meme logique pour Chart.js : sans graphiques l app doit rester utilisable.
+if (typeof window.Chart === 'undefined') {
+  window.Chart = function(){ return { destroy:function(){}, update:function(){}, resize:function(){}, data:{}, options:{} }; };
+  window.Chart.defaults = { font:{}, plugins:{} };
+}
 function entryFromDb(r){ return { id:r.id, date:r.date, brut:+r.brut, va:+r.va, mo:+r.mo, ci:+r.ci, ch:+r.ch, alT:+r.al_total, alI:r.al_items||[], profit:+r.profit, paidBy:r.paid_by||{}, notes:r.notes||'', author:r.author||'' }; }
 function entryToDb(e){ return { date:e.date, brut:e.brut||0, va:e.va||0, mo:e.mo||0, ci:e.ci||0, ch:e.ch||0, al_total:(e.alT!=null?e.alT:0), al_items:e.alI||[], profit:e.profit||0, paid_by:e.paidBy||{}, notes:e.notes||null, author:e.author||null }; }
 function vaFromDb(v){ return { _db_id:v.id, name:v.name, cat:v.cat, subs:v.subs, ca:+v.ca, net:+v.net, rate:+v.rate, bon:+v.bon, mal:+v.mal, pay:+v.pay, ltv:+v.ltv, ltvNet:+v.ltv_net, profit:+v.profit, pps:+v.pps, currentPeriod:v.current_period, wallet_address:v.wallet_address, last_paid_amount:v.last_paid_amount!=null?+v.last_paid_amount:0, last_paid_date:v.last_paid_date, total_paid:v.total_paid!=null?+v.total_paid:0, history:[], periods:[] }; }
@@ -2375,6 +2329,7 @@ function getToken() { return localStorage.getItem('crm_token') || ''; }
 async function doLogin() {
   const val = document.getElementById('login-input').value.trim();
   if (!val) return;
+  if (!sb) { document.getElementById('login-error').textContent = 'Connexion au service impossible. Vérifie ta connexion internet (ou désactive un bloqueur de pub), puis recharge la page.'; return; }
   document.getElementById('login-error').textContent = 'Connexion…';
   let error;
   try { ({ error } = await sb.auth.signInWithPassword({ email: SUPA_EMAIL, password: val })); }
