@@ -1228,6 +1228,13 @@ function renderRapprochement(){
 function _saveVirements(){
   try{ apiFetch('/api/settings',{method:'POST',body:JSON.stringify({key:'virements',value:JSON.stringify(virements)})}).catch(()=>{}); }catch(e){}
 }
+// Modèles et journal : eux aussi n'étaient sauvés nulle part (perdus à chaque rechargement).
+function _saveModeles(){
+  try{ apiFetch('/api/settings',{method:'POST',body:JSON.stringify({key:'modeles',value:JSON.stringify(modeles)})}).catch(()=>{}); }catch(e){}
+}
+function _saveEditLog(){
+  try{ apiFetch('/api/settings',{method:'POST',body:JSON.stringify({key:'editlog',value:JSON.stringify(editLog.slice(0,200))})}).catch(()=>{}); }catch(e){}
+}
 function addVirement(){
   const date=document.getElementById('vir-date')?.value||ts();
   const amount=parseFloat(document.getElementById('vir-amount')?.value)||0;
@@ -1708,7 +1715,11 @@ function deleteEntry(idx){
   if(realIdx>=0){ents.splice(realIdx,1);rh();rc();uk();}
 }
 function rh(){
-  let f=gf();
+  // `base` = liste NON filtrée : c'est elle que visent les boutons (✏ ⎘ ✕ 💬) via gf()[idx].
+  // Sans ça, dès qu'une recherche ou un filtre payeur réduit la liste, les index se
+  // décalent et on édite/supprime la MAUVAISE entrée.
+  const base=gf();
+  let f=base;
   try{renderExpenseRecap();}catch(_){}
   const q=(document.getElementById('hist-search')?.value||'').toLowerCase().trim();
   if(q) f=f.filter(e=>e.date.includes(q)||String(e.brut).includes(q)||String(Math.round(e.profit)).includes(q)||(e.notes||'').toLowerCase().includes(q));
@@ -1722,7 +1733,7 @@ function rh(){
   document.getElementById('hsub').textContent=total?(total+' entrée(s)'+(totalPages>1?' — page '+(_histPage+1)+'/'+totalPages:'')):'aucune entrée dans cette période';
   if(!total){document.getElementById('txlist').innerHTML='<div class="emsg">Aucune entrée pour cette période</div>';document.getElementById('hist-pagination').innerHTML='';return;}
   document.getElementById('txlist').innerHTML=page.map((e,i)=>{
-    const ri=start+i;
+    const ri=base.indexOf(e);
     const mg=e.brut>0?Math.round(e.profit/e.brut*100):0;
     const pb=e.paidBy||{};
     const pbTag=(v,key)=>v>0?`<span style="font-size:9px;padding:1px 4px;border-radius:3px;margin-left:3px;background:${(pb[key]||'moi')==='moi'?'#1a2030':'#221a2d'};color:${(pb[key]||'moi')==='moi'?'#60a5fa':'#e879f9'}">${(pb[key]||'moi')==='moi'?'M':'A'}</span>`:'';
@@ -2483,6 +2494,10 @@ async function loadData() {
       virements = apiSettings?.virements ? JSON.parse(apiSettings.virements) : [];
       // Récupération : cloud vide mais virements en cache navigateur (ancien bug) -> on restaure et on pousse au cloud
       if(!virements.length){ try{ const _lv=await window.storage.get('crm_virements'); const _pv=_lv?JSON.parse(_lv.value):[]; if(_pv&&_pv.length){ virements=_pv; _saveVirements(); } }catch(_e){} }
+      // Modèles et journal : relire depuis le cloud (sinon ils repartaient vides à chaque chargement)
+      try{ modeles = apiSettings?.modeles ? (JSON.parse(apiSettings.modeles)||[]) : []; }catch(_e){ modeles=[]; }
+      if(!modeles.length){ try{ const _lm=await window.storage.get('crm_modeles'); const _pm=_lm?JSON.parse(_lm.value):[]; if(_pm&&_pm.length){ modeles=_pm; _saveModeles(); } }catch(_e){} }
+      try{ editLog = apiSettings?.editlog ? (JSON.parse(apiSettings.editlog)||[]) : []; }catch(_e){ editLog=[]; }
       // Merge wallet data into VA objects
       if (Array.isArray(apiWallets)) {
         apiWallets.forEach(w => {
@@ -2508,9 +2523,19 @@ async function loadData() {
   loadDefaultPayers();
   const virDateEl=document.getElementById('vir-date');if(virDateEl)virDateEl.value=ts();
   const modStartEl=document.getElementById('mod-start');if(modStartEl)modStartEl.value=ts();
-  if (ents.length || vas.length) { rh(); rc(); uk(); rv(); }
-  renderVirements(); renderModeles();
+  // Chaque rendu est isolé : si l'un plante, les suivants doivent quand même s'exécuter.
+  const _safe=(fn)=>{try{fn();}catch(e){console.warn('render',e);}};
+  if (ents.length || vas.length) { _safe(rh); _safe(rc); _safe(uk); _safe(rv); }
+  _safe(renderVirements); _safe(renderModeles);
 }
+
+// Filet de secours local. ⚠️ `window.storage` n'existait NULLE PART : saveData()
+// plantait dès sa 1re ligne (avalé par catch{}) tout en affichant « ✓ Sauvegardé ».
+// Résultat : tout ce qui n'allait pas au cloud était perdu au moindre rechargement.
+window.storage = {
+  get(k){ try{ const v=localStorage.getItem(k); return v===null?null:{value:v}; }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
+};
 
 async function loadLocal() {
   try {
@@ -2536,12 +2561,14 @@ async function saveData() {
     await window.storage.set('crm_modeles', JSON.stringify(modeles));
     await window.storage.set('crm_editlog', JSON.stringify(editLog));
   } catch {}
-  try{_saveVirements();}catch(e){}
+  try{_saveVirements();_saveModeles();_saveEditLog();}catch(e){}
   showSaveStatus('✓ Sauvegardé');
 }
 
 async function saveEntry(entry) {
-  if (!_apiConnected) return;
+  // Un échec doit se VOIR : sinon l'utilisateur lit « ✓ Entrée enregistrée »
+  // alors que rien n'est parti au cloud, et la saisie disparaît au rechargement.
+  if (!_apiConnected) { showSaveStatus('⚠ NON SAUVEGARDÉ — hors ligne, ne recharge pas la page', '#f87171'); return; }
   try {
     const saved = await apiFetch('/api/entries', {
       method: 'POST', body: JSON.stringify(entry),
@@ -2549,7 +2576,10 @@ async function saveEntry(entry) {
     // Remplacer l'entrée locale par celle avec l'id DB
     const idx = ents.findIndex(e => e === entry);
     if (idx >= 0) ents[idx] = saved;
-  } catch (e) { console.warn('Save entry failed', e); }
+  } catch (e) {
+    console.warn('Save entry failed', e);
+    showSaveStatus('⚠ NON SAUVEGARDÉ — erreur réseau, ne recharge pas la page', '#f87171');
+  }
 }
 
 async function deleteEntryAPI(id) {
@@ -2616,13 +2646,15 @@ function getMonthlyRecap() {
   const months = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
   const map = {};
   ents.forEach(e => {
-    const d = new Date(e.date);
+    const d = new Date(e.date + 'T00:00:00');
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     const label = `${months[d.getMonth()]} ${d.getFullYear()}`;
     if (!map[key]) map[key] = { key, label, brut:0, net:0, va:0, mo:0, ci:0, ch:0, al:0, profit:0, count:0, myAdv:0, assocAdv:0, margin:0 };
-    map[key].brut += e.brut; map[key].net += e.brut*0.78;
-    map[key].va += e.va; map[key].mo += e.mo; map[key].ci += e.ci;
-    map[key].ch += e.ch; map[key].al += e.alT; map[key].profit += e.profit;
+    // ||0 partout : un seul champ manquant (import partiel) suffisait à mettre
+    // TOUT le tableau du récap mensuel à NaN.
+    map[key].brut += (e.brut||0); map[key].net += (e.brut||0)*0.78;
+    map[key].va += (e.va||0); map[key].mo += (e.mo||0); map[key].ci += (e.ci||0);
+    map[key].ch += (e.ch||0); map[key].al += (e.alT||0); map[key].profit += (e.profit||0);
     map[key].count++;
     map[key].margin=map[key].net>0?map[key].profit/map[key].net*100:0;
     const epb=e.paidBy||{};
@@ -2813,6 +2845,20 @@ function importData(e) {
       if (d.modeles) modeles = d.modeles;
       rh(); rc(); uk(); rv(); renderVirements(); renderModeles();
       await saveData();
+      // Les entrées importées doivent VRAIMENT repartir au cloud, sinon l'import
+      // n'existait qu'en mémoire et disparaissait au rechargement suivant.
+      if (_apiConnected && d.ents && d.ents.length) {
+        showSaveStatus('⏳ Restauration en cours…', '#facc15');
+        let ko = 0;
+        for (const it of d.ents) {
+          try {
+            if (it.id) { await apiFetch('/api/entries/' + it.id, { method:'PUT', body: JSON.stringify(it) }); }
+            else { await apiFetch('/api/entries', { method:'POST', body: JSON.stringify(it) }); }
+          } catch (err) { ko++; }
+        }
+        ents = await apiFetch('/api/entries'); rh(); rc(); uk();
+        if (ko) { showSaveStatus('⚠ Import partiel : ' + ko + ' entrée(s) non restaurée(s)', '#f87171'); return; }
+      }
       showSaveStatus('✓ Import réussi');
     } catch { showSaveStatus('⚠ Fichier invalide', '#f87171'); }
   };
@@ -2924,7 +2970,7 @@ window.editEntry = function(idx){
   document.getElementById('edit-banner-date').textContent=dl(entry.date);
   document.getElementById('sbtn-text').textContent='✓ Modifier l\'entrée';
   document.getElementById('edlbl').textContent='Mode édition — '+dl(entry.date);
-  document.querySelector('#page-ca .panel').scrollIntoView({behavior:'smooth'});
+  (document.getElementById('ca-entry-panel')||document.querySelector('#page-ca .panel')).scrollIntoView({behavior:'smooth'});
   uk();
 };
 
@@ -2942,7 +2988,7 @@ window.duplicateEntry = function(idx){
   document.getElementById('edit-banner').style.display='none';
   document.getElementById('sbtn-text').textContent='+ Enregistrer cette entrée';
   document.getElementById('edlbl').textContent='Entrée dupliquée — modifie si besoin';
-  document.querySelector('#page-ca .panel').scrollIntoView({behavior:'smooth'});
+  (document.getElementById('ca-entry-panel')||document.querySelector('#page-ca .panel')).scrollIntoView({behavior:'smooth'});
   uk();
 };
 
