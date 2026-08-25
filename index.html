@@ -898,7 +898,7 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
 <div class="page" id="page-editlog">
   <div class="dash-header">
     <div><div class="dash-title">Historique des modifications</div><div class="dash-sub">journal de toutes les actions</div></div>
-    <button onclick="editLog=[];saveData();renderEditLog()" style="background:#1a1a1a;border:0.5px solid #333;border-radius:6px;padding:6px 14px;color:#888;font-size:11px;cursor:pointer">🗑 Effacer</button>
+    <button onclick="clearEditLog()" style="background:#1a1a1a;border:0.5px solid #333;border-radius:6px;padding:6px 14px;color:#888;font-size:11px;cursor:pointer">🗑 Effacer</button>
   </div>
   <div id="activity-panel" class="panel" style="display:none;margin-bottom:12px"></div>
   <div class="panel">
@@ -913,6 +913,14 @@ function tpb(btn){const m=btn.dataset.pb==='moi';btn.dataset.pb=m?'associe':'moi
 function gpb(id){return document.getElementById(id)?.dataset.pb||'moi';}
 function spb(id,val){const btn=document.getElementById(id);if(!btn)return;btn.dataset.pb=val;btn.textContent=val==='associe'?'Asso.':'Moi';btn.className=val==='associe'?'pb-btn assoc':'pb-btn';}
 const fmtR=v=>'$'+Math.round(Math.abs(v)).toLocaleString('en-US');
+// Version SIGNEE : a utiliser partout ou une valeur peut etre negative (profit, solde,
+// benefice). fmtR() ci-dessus efface le signe, ce qui faisait passer une perte pour un gain.
+const fmtS=v=>(v<0?'-':'')+fmtR(v);
+// Échappe le HTML. Sans cela, un nom de dépense contenant par exemple
+// <img src=x onerror="..."> exécutait du code à chaque affichage de l'historique,
+// et un simple « < » (ex : « pub <10$ ») cassait la mise en page.
+const _ESC={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>_ESC[c]);
 const pct=(v,b)=>b>0?Math.round(v/b*100)+'% du CA':'–';
 const CC={'Manager':'#facc15','Twitter':'#60a5fa','ADS':'#fb923c','SFS':'#4ade80','Instagram':'#f472b6','Threads':'#a78bfa','Reddit':'#f87171','TikTok':'#22d3ee','Autre':'#888'};
 const CB={'Manager':'#2a2010','Twitter':'#1a2030','ADS':'#2d1f10','SFS':'#1f2d1f','Instagram':'#2d1a25','Threads':'#221a2d','Reddit':'#2d1a1a','TikTok':'#1a2828','Autre':'#222'};
@@ -995,7 +1003,11 @@ function rmModelePayment(modelId,idx){
 function renderModeles(){
   const totalNet=ents.reduce((s,e)=>s+e.brut*0.78,0);
   const totalDu=modeles.reduce((s,m)=>s+totalNet*(m.split_pct/100),0);
-  const totalPaid=modeles.reduce((s,m)=>s+(m.payments||[]).reduce((x,p)=>x+p.amount,0),0);
+  // Le champ « Paiement Modèle » des entrées (e.mo) est de l argent REELLEMENT verse
+  // aux modeles : sans le compter ici, la page affichait « reste a payer » alors que
+  // la somme avait deja ete envoyee.
+  const moEntries=ents.reduce((s,e)=>s+(e.mo||0),0);
+  const totalPaid=modeles.reduce((s,m)=>s+(m.payments||[]).reduce((x,p)=>x+p.amount,0),0)+moEntries;
   const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
   set('mod-count',modeles.length);
   set('mod-net',fmtR(totalNet));
@@ -1017,7 +1029,7 @@ function renderModeles(){
         <div style="display:flex;align-items:center;gap:10px">
           <div style="width:36px;height:36px;border-radius:50%;background:#2d1a25;color:#f472b6;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">${ini}</div>
           <div>
-            <div style="font-size:15px;font-weight:600;color:#fff">${m.name}</div>
+            <div style="font-size:15px;font-weight:600;color:#fff">${esc(m.name)}</div>
             <div style="font-size:11px;color:#555;margin-top:2px">${m.platform} · <span style="color:#f472b6">${m.split_pct}% split</span> · depuis ${m.start?new Date(m.start+'T00:00:00').toLocaleDateString('fr-FR',{month:'short',year:'numeric'}):'-'}</div>
           </div>
         </div>
@@ -1037,7 +1049,7 @@ function renderModeles(){
           <div style="font-size:16px;font-weight:700;color:${resteColor}">${reste>0?fmtR(reste):'✅'}</div>
         </div>
       </div>
-      ${m.notes?`<div style="font-size:11px;color:#555;font-style:italic;margin-bottom:10px">💬 ${m.notes}</div>`:''}
+      ${m.notes?`<div style="font-size:11px;color:#555;font-style:italic;margin-bottom:10px">💬 ${esc(m.notes)}</div>`:''}
       <!-- Log paiement -->
       <div style="background:#0e0e0e;border-radius:6px;padding:10px;border:0.5px solid #1a1a1a;margin-bottom:8px">
         <div style="font-size:10px;color:#444;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Logger un paiement</div>
@@ -1054,7 +1066,7 @@ function renderModeles(){
         ${(m.payments||[]).slice(0,5).map((p,i)=>`<div class="txrow" style="align-items:center">
           <span class="txdb">${dl(p.date)}</span>
           <span style="font-size:13px;font-weight:600;color:#4ade80;flex:1">+${fmtR(p.amount)}</span>
-          ${p.note?`<span style="font-size:11px;color:#555;flex:2;font-style:italic">${p.note}</span>`:'<span style="flex:2"></span>'}
+          ${p.note?`<span style="font-size:11px;color:#555;flex:2;font-style:italic">${esc(p.note)}</span>`:'<span style="flex:2"></span>'}
           <button onclick="rmModelePayment(${m.id},${i})" style="background:none;border:0.5px solid #2a2a2a;border-radius:4px;padding:2px 6px;color:#444;font-size:11px;cursor:pointer">✕</button>
         </div>`).join('')}
       </div>`:''}
@@ -1083,8 +1095,8 @@ function renderRiskPanel(pool){
   const top1pct=Math.round(top1.ca/totalCA*100);
   const top3pct=Math.round(sorted.slice(0,3).reduce((s,v)=>s+v.ca,0)/totalCA*100);
 
-  if(top1pct>=50) alerts.push({ic:'🚨',txt:`<strong>${top1.name}</strong> représente ${top1pct}% du CA — risque critique`,c:'#f87171',bg:'#2d1a1a',bd:'#f87171'});
-  else if(top1pct>=35) alerts.push({ic:'⚠️',txt:`<strong>${top1.name}</strong> représente ${top1pct}% du CA — surveiller`,c:'#facc15',bg:'#2a2010',bd:'#facc15'});
+  if(top1pct>=50) alerts.push({ic:'🚨',txt:`<strong>${esc(top1.name)}</strong> représente ${top1pct}% du CA — risque critique`,c:'#f87171',bg:'#2d1a1a',bd:'#f87171'});
+  else if(top1pct>=35) alerts.push({ic:'⚠️',txt:`<strong>${esc(top1.name)}</strong> représente ${top1pct}% du CA — surveiller`,c:'#facc15',bg:'#2a2010',bd:'#facc15'});
   if(pool.length<4) alerts.push({ic:'📉',txt:`Seulement ${pool.length} VA actifs — manque de diversification`,c:'#fb923c',bg:'#2d1f10',bd:'#fb923c'});
   if(top3pct>=80&&pool.length>3) alerts.push({ic:'⚠️',txt:`Top 3 VA = ${top3pct}% du CA total`,c:'#facc15',bg:'#2a2010',bd:'#facc15'});
   if(alerts.length===0) alerts.push({ic:'✅',txt:`Bonne diversification — top VA à ${top1pct}% du CA`,c:'#4ade80',bg:'#1f2d1f',bd:'#4ade80'});
@@ -1117,7 +1129,7 @@ function renderRiskPanel(pool){
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:#555;min-width:18px">#${i+1}</span>
-            <span style="font-size:12px;color:#ccc;font-weight:500">${v.name}</span>
+            <span style="font-size:12px;color:#ccc;font-weight:500">${esc(v.name)}</span>
             <span style="font-size:10px;padding:1px 6px;border-radius:3px;background:${CB[v.cat]||'#222'};color:${cc}">${v.cat}</span>
           </div>
           <div style="text-align:right;font-size:11px">
@@ -1145,9 +1157,14 @@ function getGlobalBalance(){
     (e.alI||[]).forEach(ai=>{if(ai.paidBy==='associe')assocAdv+=ai.val;else myAdv+=ai.val;});
     totalProfit+=(e.profit||0);
   });
-  const halfProfit=Math.max(0,totalProfit)/2;
+  // Les PERTES doivent aussi se partager 50/50. Avec Math.max(0,...) une perte etait
+  // entierement absorbee par l associe : la somme des droits depassait l argent en caisse.
+  const halfProfit=totalProfit/2;
   const totalDu=myAdv+halfProfit;
-  const totalRecu=virements.reduce((s,v)=>s+(v.amount||0),0);
+  // Le même cutoff doit s'appliquer aux virements : sinon un virement reçu APRÈS la
+  // date de coupure venait payer une période exclue du calcul, et le « reste à
+  // recevoir » était sous-estimé d'autant.
+  const totalRecu=virements.reduce((s,v)=>(cutoff && v.date>cutoff)?s:s+(v.amount||0),0);
   return{myAdv,assocAdv,totalProfit,halfProfit,totalDu,totalRecu,reste:totalDu-totalRecu};
 }
 
@@ -1168,7 +1185,7 @@ function renderVirements(){
     <div class="txrow" style="align-items:center">
       <span class="txdb">${dl(v.date)}</span>
       <span style="font-size:14px;font-weight:600;color:#4ade80;flex:1">+${fmtR(v.amount)}</span>
-      ${v.note?`<span style="font-size:11px;color:#555;flex:2;font-style:italic">💬 ${v.note}</span>`:'<span style="flex:2"></span>'}
+      ${v.note?`<span style="font-size:11px;color:#555;flex:2;font-style:italic">💬 ${esc(v.note)}</span>`:'<span style="flex:2"></span>'}
       <div class="row-actions"><button onclick="deleteVirement(${i})" style="color:#444;border-color:#2a2a2a">✕</button></div>
     </div>`).join('');
 }
@@ -1181,7 +1198,7 @@ function renderRapprochement(){
   const b=getGlobalBalance();
   const _rc=document.getElementById('rapp-cutoff')?.value||'';
   const cutoffTxt=_rc?` <span style="color:#facc15">· jusqu'au ${dl(_rc)} (hors argent en attente)</span>`:'';
-  const totalVirements=virements.reduce((s,v)=>s+(v.amount||0),0);
+  const totalVirements=b.totalRecu; // déjà filtré par la date de coupure
   // Ce que l'associé doit à Moi = mes avances + 50% profit
   const moiDroit=b.myAdv+b.halfProfit;
   // Ce que Moi doit à l'Associé = ses avances + 50% profit (il gère son propre compte)
@@ -1225,16 +1242,26 @@ function renderRapprochement(){
       </div>`).join('')}`;
 }
 
-function _saveVirements(){
-  try{ apiFetch('/api/settings',{method:'POST',body:JSON.stringify({key:'virements',value:JSON.stringify(virements)})}).catch(()=>{}); }catch(e){}
+// ⚠️ CONCURRENCE (deux associés, deux appareils) : ces trois listes sont stockées
+// chacune dans UNE ligne de `settings`. Écrire = réécrire toute la liste, donc le
+// dernier qui écrit gagne. Le danger venait de saveData(), appelée depuis ~19
+// endroits (dont logEdit, à CHAQUE saisie d'entrée) : enregistrer un simple CA
+// renvoyait la liste des virements telle qu'elle était en mémoire — écrasant un
+// virement que l'autre venait d'ajouter. On ne réécrit donc une liste que si elle
+// a réellement été modifiée dans cette session.
+const _dirty={virements:false,modeles:false,editlog:false};
+function _pushSetting(key,val){
+  try{ apiFetch('/api/settings',{method:'POST',body:JSON.stringify({key,value:JSON.stringify(val)})}).catch(()=>{}); }catch(e){}
 }
+// Effacer le journal detruit toute la piste d audit : une confirmation s impose,
+// comme pour la suppression d une entree ou d un VA.
+async function clearEditLog(){
+  if(!await showConfirm('Effacer tout l historique des modifications ? Cette action est irreversible.')) return;
+  editLog=[]; _saveEditLog(); saveData(); renderEditLog();
+}function _saveVirements(){ _dirty.virements=true; _pushSetting('virements',virements); }
 // Modèles et journal : eux aussi n'étaient sauvés nulle part (perdus à chaque rechargement).
-function _saveModeles(){
-  try{ apiFetch('/api/settings',{method:'POST',body:JSON.stringify({key:'modeles',value:JSON.stringify(modeles)})}).catch(()=>{}); }catch(e){}
-}
-function _saveEditLog(){
-  try{ apiFetch('/api/settings',{method:'POST',body:JSON.stringify({key:'editlog',value:JSON.stringify(editLog.slice(0,200))})}).catch(()=>{}); }catch(e){}
-}
+function _saveModeles(){ _dirty.modeles=true; _pushSetting('modeles',modeles); }
+function _saveEditLog(){ _dirty.editlog=true; _pushSetting('editlog',editLog.slice(0,200)); }
 function addVirement(){
   const date=document.getElementById('vir-date')?.value||ts();
   const amount=parseFloat(document.getElementById('vir-amount')?.value)||0;
@@ -1318,9 +1345,9 @@ function showAlertDetails(type){
     ? matches.map(v=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:0.5px solid #222">
           <div style="display:flex;align-items:center;gap:10px">
-            <div style="width:28px;height:28px;border-radius:50%;background:${CB[v.cat]||'#222'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:${CC[v.cat]||'#888'};flex-shrink:0">${v.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)}</div>
+            <div style="width:28px;height:28px;border-radius:50%;background:${CB[v.cat]||'#222'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:${CC[v.cat]||'#888'};flex-shrink:0">${esc(v.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2))}</div>
             <div>
-              <div style="font-size:13px;color:#ccc;font-weight:500">${v.name}</div>
+              <div style="font-size:13px;color:#ccc;font-weight:500">${esc(v.name)}</div>
               <div style="font-size:11px;color:#555;margin-top:1px">${v.cat} · ${v.subs} subs</div>
             </div>
           </div>
@@ -1417,7 +1444,7 @@ function gf(){
   return ents.filter(e=>{const d=new Date(e.date+'T00:00:00');return d>=start&&d<=end;});
 }
 function gv(id){return parseFloat(document.getElementById(id).value)||0;}
-function addAF(n='',v='',pb='moi'){const id=++afc;afs.push(id);const d=document.createElement('div');d.className='arow';d.id='ar-'+id;const cls=pb==='associe'?'pb-btn assoc':'pb-btn';const txt=pb==='associe'?'Asso.':'Moi';d.innerHTML=`<input class="ifield" style="flex:1" type="text" id="an-${id}" placeholder="Nom (ex: pub Meta)" value="${n}" oninput="uk()"><input class="ifield" style="width:90px;flex-shrink:0" type="number" id="av-${id}" placeholder="$" value="${v}" oninput="uk()"><button class="${cls}" data-pb="${pb}" onclick="tpb(this);uk()" type="button">${txt}</button><button class="arm" onclick="ra(${id})">×</button>`;document.getElementById('ainps').appendChild(d);}
+function addAF(n='',v='',pb='moi'){const id=++afc;afs.push(id);const d=document.createElement('div');d.className='arow';d.id='ar-'+id;const cls=pb==='associe'?'pb-btn assoc':'pb-btn';const txt=pb==='associe'?'Asso.':'Moi';d.innerHTML=`<input class="ifield" style="flex:1" type="text" id="an-${id}" placeholder="Nom (ex: pub Meta)" value="${esc(n)}" oninput="uk()"><input class="ifield" style="width:90px;flex-shrink:0" type="number" id="av-${id}" placeholder="$" value="${v}" oninput="uk()"><button class="${cls}" data-pb="${pb}" onclick="tpb(this);uk()" type="button">${txt}</button><button class="arm" onclick="ra(${id})">×</button>`;document.getElementById('ainps').appendChild(d);}
 function ra(id){const r=document.getElementById('ar-'+id);if(r)r.remove();afs=afs.filter(f=>f!==id);uk();}
 function gat(){return afs.reduce((s,id)=>s+(parseFloat(document.getElementById('av-'+id)?.value)||0),0);}
 function gai(){return afs.map(id=>({name:document.getElementById('an-'+id)?.value||'Dépense',val:parseFloat(document.getElementById('av-'+id)?.value)||0,paidBy:document.getElementById('ar-'+id)?.querySelector('[data-pb]')?.dataset.pb||'moi'})).filter(i=>i.val>0);}
@@ -1603,17 +1630,23 @@ function uk(){
   const _empty=ents.length===0;
   const _es=document.getElementById('empty-state');if(_es)_es.style.display=_empty?'block':'none';
   document.querySelectorAll('#page-ca .kpi-sec,#page-ca .kpi-hero-grid,#page-ca .kpi-dep-grid').forEach(x=>{x.style.display=_empty?'none':'';});
-  const br=f.reduce((s,e)=>s+e.brut,0)+gv('ib');
-  const va=f.reduce((s,e)=>s+e.va,0)+gv('iv');
-  const mo=f.reduce((s,e)=>s+e.mo,0)+gv('im');
-  const ci=f.reduce((s,e)=>s+e.ci,0)+gv('ici');
-  const ch=f.reduce((s,e)=>s+e.ch,0)+gv('ich');
+  const br=f.reduce((s,e)=>s+(e.brut||0),0)+gv('ib');
+  const va=f.reduce((s,e)=>s+(e.va||0),0)+gv('iv');
+  const mo=f.reduce((s,e)=>s+(e.mo||0),0)+gv('im');
+  const ci=f.reduce((s,e)=>s+(e.ci||0),0)+gv('ici');
+  const ch=f.reduce((s,e)=>s+(e.ch||0),0)+gv('ich');
   const al=f.reduce((s,e)=>s+(e.alT||0),0)+gat();
   const ac=f.reduce((s,e)=>s+(e.alI?e.alI.length:0),0)+gai().length;
   const of=br*.22,net=br*.78,dep=va+mo+ci+ch+al,pr=net-dep;
   const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
   set('vb',br?fmtR(br):'—');set('vof',br?'−'+fmtR(of):'—');set('vn',br?fmtR(net):'—');
-  set('vva',va?'−'+fmtR(va):'—');set('vmo',mo?'−'+fmtR(mo):'—');set('vci',ci?'−'+fmtR(ci):'—');set('vch',ch?'−'+fmtR(ch):'—');set('val',al?'−'+fmtR(al):'—');set('vdep',dep?'−'+fmtR(dep):'—');set('vpr',br?fmtR(pr):'—');
+  set('vva',va?'−'+fmtR(va):'—');set('vmo',mo?'−'+fmtR(mo):'—');set('vci',ci?'−'+fmtR(ci):'—');set('vch',ch?'−'+fmtR(ch):'—');set('val',al?'−'+fmtR(al):'—');set('vdep',dep?'−'+fmtR(dep):'—');
+  // Une PERTE doit se voir : fmtR() supprime le signe (Math.abs), et la couleur de la
+  // carte Profit était figée en vert dans le HTML -> une perte de 2 100 $ s'affichait
+  // « $2,100 » en vert, comme un gain.
+  set('vpr',br?fmtS(pr):'—');
+  const _vprEl=document.getElementById('vpr');
+  if(_vprEl)_vprEl.style.color = pr<0 ? '#f87171' : 'var(--acc)';
   set('de',f.length?f.length+' entrée(s)':'données saisies');set('pn',pct(net,br));set('pva',pct(va,br));set('pmo',pct(mo,br));set('pci',pct(ci,br));set('pch',pct(ch,br));
   set('pal',al&&br?Math.round(al/br*100)+'% · '+ac+' dép.':'–');set('pdep',pct(dep,br));set('ppr',br?Math.round(pr/br*100)+'% du CA':'–');
   const _pd=periodDelta();
@@ -1730,9 +1763,9 @@ function rh(){
     const alMoi=alL.filter(x=>(x.paidBy||'moi')==='moi'), alAsso=alL.filter(x=>x.paidBy==='associe');
     const alMoiT=alMoi.reduce((s,x)=>s+(x.val||0),0), alAssoT=alAsso.reduce((s,x)=>s+(x.val||0),0);
     const alTot=alMoiT+alAssoT;
-    const grp=(ttl,arr,tot,col)=>arr.length?`<div style="flex:1;min-width:150px"><div style="font-size:10px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;display:flex;justify-content:space-between"><span>${ttl}</span><span>${fmtR(tot)}</span></div>${arr.slice().sort((a,b)=>(b.val||0)-(a.val||0)).map(x=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:11px;color:#9a9aa0;padding:2px 0;border-bottom:0.5px solid #171719"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.name}</span><b style="color:#ccc;white-space:nowrap">${fmtR(x.val)}</b></div>`).join('')}</div>`:'';
+    const grp=(ttl,arr,tot,col)=>arr.length?`<div style="flex:1;min-width:150px"><div style="font-size:10px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;display:flex;justify-content:space-between"><span>${ttl}</span><span>${fmtR(tot)}</span></div>${arr.slice().sort((a,b)=>(b.val||0)-(a.val||0)).map(x=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:11px;color:#9a9aa0;padding:2px 0;border-bottom:0.5px solid #171719"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</span><b style="color:#ccc;white-space:nowrap">${fmtR(x.val)}</b></div>`).join('')}</div>`:'';
     const miscHtml=alL.length?`<div style="margin-top:6px"><button type="button" onclick="var d=document.getElementById('misc-${ri}');var o=d.style.display==='none';d.style.display=o?'flex':'none';this.querySelector('.cv').textContent=o?'▴':'▾'" style="background:#161619;border:1px solid #26262c;border-radius:7px;padding:5px 11px;color:#aaa;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:8px">🧾 <b style="color:#ddd">${alL.length} dépense${alL.length>1?'s':''} diverse${alL.length>1?'s':''}</b> · <b style="color:#ddd">${fmtR(alTot)}</b>${alMoiT>0?` · <span style="color:#60a5fa">Moi ${fmtR(alMoiT)}</span>`:''}${alAssoT>0?` · <span style="color:#e879f9">Asso ${fmtR(alAssoT)}</span>`:''} <span class="cv" style="color:#666;font-size:10px">▾</span></button><div id="misc-${ri}" style="display:none;gap:22px;flex-wrap:wrap;background:#0e0e0f;border:1px solid #1e1e22;border-radius:8px;padding:11px 14px;margin-top:5px">${grp('Payé par Moi',alMoi,alMoiT,'#60a5fa')}${grp('Payé par Associé',alAsso,alAssoT,'#e879f9')}</div></div>`:'';
-    const notesHtml=e.notes?`<div style="font-size:10px;color:#555;margin-top:3px;font-style:italic">💬 ${e.notes}</div>`:'';
+    const notesHtml=e.notes?`<div style="font-size:10px;color:#555;margin-top:3px;font-style:italic">💬 ${esc(e.notes)}</div>`:'';
     return `<div class="txrow"><div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0"><span class="txdb">${dl(e.date)}</span>${e.author?`<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#1a1a1e;color:#8a8a90;border:0.5px solid #2a2a2a;margin-left:4px">${e.author}</span>`:''}<div><div style="font-size:13px;color:#bbb">CA ${fmtR(e.brut)}</div><div style="font-size:11px;color:#444;margin-top:2px;line-height:1.7"><span style="color:#facc15">VA ${fmtR(e.va)}${pbTag(e.va,'va')}</span> · <span style="color:#a78bfa">Modèle ${fmtR(e.mo)}${pbTag(e.mo,'mo')}</span> · <span style="color:#22d3ee">Chat IA ${fmtR(e.ci)}${pbTag(e.ci,'ci')}</span> · <span style="color:#fb923c">Chat Hum. ${fmtR(e.ch)}${pbTag(e.ch,'ch')}</span></div>${miscHtml}${notesHtml}</div></div><div style="display:flex;align-items:center;gap:8px"><div style="text-align:right"><div style="font-size:13px;font-weight:500;color:${e.profit>=0?'#4ade80':'#f87171'}">${e.profit>=0?'+':''}${fmtR(e.profit)}</div><div style="font-size:10px;color:#444;margin-top:2px">${mg}% marge</div></div><div class="row-actions"><button onclick="window.quickNote(${ri})" title="${e.notes?'Note (cliquer pour éditer)':'Ajouter une note partagée'}" style="color:${e.notes?'#4ade80':'#444'}">💬</button><button onclick="window.editEntry(${ri})" title="Modifier" style="color:#facc15">✏</button><button onclick="window.duplicateEntry(${ri})" title="Dupliquer" style="color:#60a5fa">⎘</button><button onclick="deleteEntry(${ri})" title="Supprimer" style="color:#444">✕</button></div></div></div>`;
   }).join('');
   const pg=document.getElementById('hist-pagination');
@@ -2146,11 +2179,11 @@ function rv(){
   const tb=document.getElementById('tbs');
   if(s.length>=2){
     tb.style.display='grid';
-    document.getElementById('t5l').innerHTML=s.slice(0,5).map((v,i)=>{const cc=CC[v.cat]||'#888';const rc=i===0?'#facc15':i===1?'#aaa':i===2?'#fb923c':'#333';return `<div class="t5c"><div class="t5r" style="color:${rc}">#${i+1}</div><div class="t5i"><div class="t5n">${v.name}</div><div class="t5p" style="color:#4ade80">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${v.cat} · profit total ${fmt(v.profit)}</div></div></div>`;}).join('');
-    document.getElementById('b5l').innerHTML=[...s].reverse().slice(0,5).map((v,i)=>{const cc=CC[v.cat]||'#888';return `<div class="t5c"><div class="t5r" style="color:#444">#${s.length-i}</div><div class="t5i"><div class="t5n">${v.name}</div><div class="t5p" style="color:${v.pps>=0?'#facc15':'#f87171'}">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${v.cat} · profit total ${fmt(v.profit)}</div></div></div>`;}).join('');
+    document.getElementById('t5l').innerHTML=s.slice(0,5).map((v,i)=>{const cc=CC[v.cat]||'#888';const rc=i===0?'#facc15':i===1?'#aaa':i===2?'#fb923c':'#333';return `<div class="t5c"><div class="t5r" style="color:${rc}">#${i+1}</div><div class="t5i"><div class="t5n">${esc(v.name)}</div><div class="t5p" style="color:#4ade80">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${v.cat} · profit total ${fmt(v.profit)}</div></div></div>`;}).join('');
+    document.getElementById('b5l').innerHTML=[...s].reverse().slice(0,5).map((v,i)=>{const cc=CC[v.cat]||'#888';return `<div class="t5c"><div class="t5r" style="color:#444">#${s.length-i}</div><div class="t5i"><div class="t5n">${esc(v.name)}</div><div class="t5p" style="color:${v.pps>=0?'#facc15':'#f87171'}">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${v.cat} · profit total ${fmt(v.profit)}</div></div></div>`;}).join('');
   } else {tb.style.display='none';}
   const cats=['Tous',...new Set(filteredVas.map(v=>v.cat))];
-  document.getElementById('cff').innerHTML=cats.map(c=>`<button class="cfb${c===af?' active':''}" onclick="fc('${c}',this)">${c}</button>`).join('');
+  document.getElementById('cff').innerHTML=cats.map(c=>`<button class="cfb${c===af?' active':''}" onclick="fc('${esc(c)}',this)">${c}</button>`).join('');
   renderVA(filteredVas, flt);
 }
 function renderVA(filteredVas, flt){
@@ -2184,8 +2217,8 @@ function renderVA(filteredVas, flt){
     const qBot=(document.getElementById('searchBottom5')?.value||'').toLowerCase();
     const top5=filteredVA.filter(v=>v.name.toLowerCase().includes(qTop)||v.cat.toLowerCase().includes(qTop)).slice(0,5);
     const bottom5=[...filteredVA].reverse().filter(v=>v.name.toLowerCase().includes(qBot)||v.cat.toLowerCase().includes(qBot)).slice(0,5);
-    document.getElementById('t5l').innerHTML=top5.length?top5.map((v,i)=>{const cc=CC[v.cat]||'#888';const rc=i===0?'#facc15':i===1?'#aaa':i===2?'#fb923c':'#333';return `<div class="t5c"><div class="t5r" style="color:${rc}">#${i+1}</div><div class="t5i"><div class="t5n">${v.name}</div><div class="t5p" style="color:#4ade80">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${v.cat} · total ${fmt(v.profit)}</div></div></div>`;}).join(''):'<div class="emsg">Aucun résultat</div>';
-    document.getElementById('b5l').innerHTML=bottom5.length?bottom5.map((v,i)=>{const cc=CC[v.cat]||'#888';return `<div class="t5c"><div class="t5r" style="color:#444">#${filteredVA.length-i}</div><div class="t5i"><div class="t5n">${v.name}</div><div class="t5p" style="color:${v.pps>=0?'#facc15':'#f87171'}">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${v.cat} · total ${fmt(v.profit)}</div></div></div>`;}).join(''):'<div class="emsg">Aucun résultat</div>';
+    document.getElementById('t5l').innerHTML=top5.length?top5.map((v,i)=>{const cc=CC[v.cat]||'#888';const rc=i===0?'#facc15':i===1?'#aaa':i===2?'#fb923c':'#333';return `<div class="t5c"><div class="t5r" style="color:${rc}">#${i+1}</div><div class="t5i"><div class="t5n">${esc(v.name)}</div><div class="t5p" style="color:#4ade80">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${v.cat} · total ${fmt(v.profit)}</div></div></div>`;}).join(''):'<div class="emsg">Aucun résultat</div>';
+    document.getElementById('b5l').innerHTML=bottom5.length?bottom5.map((v,i)=>{const cc=CC[v.cat]||'#888';return `<div class="t5c"><div class="t5r" style="color:#444">#${filteredVA.length-i}</div><div class="t5i"><div class="t5n">${esc(v.name)}</div><div class="t5p" style="color:${v.pps>=0?'#facc15':'#f87171'}">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${v.cat} · total ${fmt(v.profit)}</div></div></div>`;}).join(''):'<div class="emsg">Aucun résultat</div>';
   } else {tb.style.display='none';}
 
   if(!f.length){document.getElementById('vacards').innerHTML='<div class="emsg">Aucun VA dans cette sélection</div>';return;}
@@ -2245,7 +2278,7 @@ function renderVA(filteredVas, flt){
       <button class="varm" onclick="rmVA(${ri})">×</button>
       <div class="vach" style="padding-left:28px">
         <div class="vaav" style="background:${cb};color:${cc}">${ini}</div>
-        <div><div class="vacn">${v.name}${periodBadge}</div><div class="vacs">${lh}<span class="cbdg" style="background:${cb};color:${cc}">${v.cat}</span><span class="${rc.c}">${rc.l}</span>${actBadge}${trendBadge}</div></div>
+        <div><div class="vacn">${esc(v.name)}${periodBadge}</div><div class="vacs">${lh}<span class="cbdg" style="background:${cb};color:${cc}">${v.cat}</span><span class="${rc.c}">${rc.l}</span>${actBadge}${trendBadge}</div></div>
       </div>
       <div class="vsr"><span class="vsrl">Prix par sub</span><span class="vsrv" style="color:#fff">$${v.rate.toFixed(2)}</span></div>
       <div class="vsr"><span class="vsrl">Subs gérés</span><span class="vsrv" style="color:#fff">${v.subs.toLocaleString('en-US')}</span></div>
@@ -2336,7 +2369,9 @@ async function doLogin() {
   catch (e) { error = e; }
   if (error) {
     document.getElementById('login-input').value = '';
-    document.getElementById('login-error').textContent = 'Mot de passe incorrect';
+    const _m=String((error&&(error.message||error))||'');
+    const _reseau=/fetch|network|Failed to fetch|NetworkError|timeout/i.test(_m);
+    document.getElementById('login-error').textContent = _reseau ? 'Connexion impossible \u2014 v\u00e9rifie ta connexion internet puis r\u00e9essaie.' : 'Mot de passe incorrect';
     return;
   }
   localStorage.setItem('crm_role', 'owner');
@@ -2516,7 +2551,13 @@ async function saveData() {
     await window.storage.set('crm_modeles', JSON.stringify(modeles));
     await window.storage.set('crm_editlog', JSON.stringify(editLog));
   } catch {}
-  try{_saveVirements();_saveModeles();_saveEditLog();}catch(e){}
+  // On ne renvoie au cloud que les listes REELLEMENT modifiees dans cette session,
+  // sinon une simple saisie de CA ecrasait les virements ajoutes par l autre associe.
+  try{
+    if(_dirty.virements)_pushSetting('virements',virements);
+    if(_dirty.modeles)_pushSetting('modeles',modeles);
+    if(_dirty.editlog)_pushSetting('editlog',editLog.slice(0,200));
+  }catch(e){}
   showSaveStatus('✓ Sauvegardé');
 }
 
@@ -2550,7 +2591,7 @@ async function saveVA(va, historyEntry) {
       method: 'POST',
       body: JSON.stringify({ ...va, historyEntry }),
     });
-  } catch (e) { console.warn('Save VA failed', e); }
+  } catch (e) { console.warn('Save VA failed', e); showSaveStatus('\u26a0 VA NON SAUVEGARD\u00c9 \u2014 ne recharge pas la page','#f87171'); }
 }
 
 async function deleteVAAPI(name) {
@@ -2794,6 +2835,11 @@ function importData(e) {
   r.onload = async ev => {
     try {
       const d = JSON.parse(ev.target.result);
+      // L'import ÉCRASE tout (entrées, VA, virements, modèles) puis pousse le résultat
+      // en base. Sans confirmation, un clic de travers sur ce bouton — voisin des
+      // boutons d'export — détruisait définitivement la comptabilité.
+      const _nb=(d.ents||[]).length;
+      if(!await showConfirm('Remplacer TOUTES les données actuelles par ce fichier ('+_nb+' entrée(s)) ? Cette action écrase la base et est irréversible.')){ e.target.value=''; return; }
       if (d.ents) ents = d.ents;
       if (d.vas) vas = d.vas;
       if (d.virements) virements = d.virements;
@@ -2843,7 +2889,9 @@ function countUpKPI(id,from){
   if(card){const up=to>=from;card.style.transition='box-shadow .4s';card.style.boxShadow=up?'0 0 0 1px rgba(74,222,128,.55),0 0 22px rgba(74,222,128,.28)':'0 0 0 1px rgba(248,113,113,.55),0 0 22px rgba(248,113,113,.24)';setTimeout(function(){card.style.boxShadow='';},750);}
   if(from===to)return;
   const start=performance.now(),dur=650;
-  const step=function(now){const t=Math.min(1,(now-start)/dur);const val=from+(to-from)*(1-Math.pow(1-t,3));el.textContent='$'+Math.round(Math.abs(val)).toLocaleString('en-US');if(t<1)requestAnimationFrame(step);else el.textContent='$'+Math.round(Math.abs(to)).toLocaleString('en-US');};
+  // fmtS conserve le signe : sans cela l animation reaffichait une perte en positif,
+  // annulant la correction faite dans uk().
+  const step=function(now){const t=Math.min(1,(now-start)/dur);const val=from+(to-from)*(1-Math.pow(1-t,3));el.textContent=fmtS(val);if(t<1)requestAnimationFrame(step);else el.textContent=fmtS(to);};
   requestAnimationFrame(step);
 }
 function se() {
@@ -2890,9 +2938,11 @@ function se() {
 }
 
 async function updateEntryAPI(id, entry) {
-  if(!_apiConnected) return;
+  // Échec visible : l'app affichait « ✓ Entrée modifiée » même quand la modification
+  // n'était jamais partie au cloud (session expirée, coupure réseau).
+  if(!_apiConnected){ showSaveStatus('⚠ MODIFICATION NON SAUVEGARDÉE — hors ligne, ne recharge pas la page','#f87171'); return; }
   try { await apiFetch(`/api/entries/${id}`,{method:'PUT',body:JSON.stringify(entry)}); }
-  catch(e){ console.warn('Update entry failed',e); }
+  catch(e){ console.warn('Update entry failed',e); showSaveStatus('⚠ MODIFICATION NON SAUVEGARDÉE — ne recharge pas la page','#f87171'); }
 }
 
 function cancelEdit(){
@@ -2909,6 +2959,10 @@ function cancelEdit(){
 
 window.editEntry = function(idx){
   const entry=gf()[idx]; if(!entry) return;
+  // Sans identifiant en base, la validation partait dans la branche "creation" et
+  // fabriquait un DOUBLON (CA compte deux fois), en laissant le bandeau d edition
+  // affiche. On refuse l edition tant que l entree n est pas enregistree.
+  if(!entry.id){ showSaveStatus('\u26a0 Entr\u00e9e pas encore enregistr\u00e9e \u2014 recharge la page avant de la modifier','#f87171'); return; }
   _editingId=entry.id;
   document.getElementById('ib').value=entry.brut;
   document.getElementById('iv').value=entry.va;
@@ -2952,7 +3006,10 @@ window.addVA = function() {
   const cat=document.getElementById('vac').value;
   const subs=parseFloat(document.getElementById('vasubs').value)||0;
   const ca=parseFloat(document.getElementById('vaca').value)||0;
-  const rate=parseFloat(document.getElementById('varate').value)||0.5;
+  // 0 est une valeur VALIDE : ||0.5 la transformait silencieusement en 0,50 $, ce qui
+  // creait une depense fantome (300 subs x 0,50 = 150 $) alors que l apercu affichait 0.
+  const _rateRaw=parseFloat(document.getElementById('varate').value);
+  const rate=isNaN(_rateRaw)?0.5:_rateRaw;
   const bon=parseFloat(document.getElementById('vabon').value)||0;
   const mal=parseFloat(document.getElementById('vamal').value)||0;
   const pay=Math.max(0,subs*rate+bon-mal);
@@ -3041,7 +3098,11 @@ function quickAddSave(){
   const al=parseFloat(document.getElementById('qa-al')?.value)||0;
   const date=document.getElementById('qa-date')?.value||ts();
   const profit=Math.round(br*0.78-va-mo-al);
-  const entry={date,brut:br,va,mo,ci:0,ch:0,alI:[],alT:al,profit,paidBy:{},notes:'[ajout rapide]'};
+  // La dépense « Autres » doit exister dans alI, sinon le rapprochement et le récap
+  // (qui parcourent alI) l'ignorent : l'avance n'était attribuée à personne et
+  // disparaissait de ce que l'associé te doit.
+  const alIQ = al>0 ? [{name:'Ajout rapide', val:al, paidBy:'moi'}] : [];
+  const entry={date,brut:br,va,mo,ci:0,ch:0,alI:alIQ,alT:al,profit,paidBy:{va:'moi',mo:'moi'},notes:'[ajout rapide]'};
   ents.unshift(entry);
   saveEntry(entry);
   logEdit('Ajout rapide', `${dl(date)} · CA ${fmt(br)} · profit ${fmt(profit)}`);
@@ -3069,15 +3130,15 @@ function runGSearch(q){
   const hits=[];
   ents.forEach((e,i)=>{
     const s=`${e.date} ${e.brut} ${e.profit} ${e.notes||''}`.toLowerCase();
-    if(s.includes(q))hits.push({type:'Entrée',color:'#60a5fa',label:`${dl(e.date)} — CA ${fmt(e.brut)} · profit ${fmt(e.profit)}${e.notes?' · '+e.notes:''}`,action:`document.querySelector('.tab[onclick*=\\'ca\\']').click();rh()`});
+    if(s.includes(q))hits.push({type:'Entrée',color:'#60a5fa',label:`${dl(e.date)} — CA ${fmt(e.brut)} · profit ${fmt(e.profit)}${e.notes?' · '+esc(e.notes):''}`,action:`document.querySelector('.tab[onclick*=\\'ca\\']').click();rh()`});
   });
   vas.forEach((v,i)=>{
     if(v.name.toLowerCase().includes(q)||v.cat.toLowerCase().includes(q))
-      hits.push({type:'VA',color:'#4ade80',label:`${v.name} — ${v.cat} · profit ${fmt(v.profit)}`,action:`document.querySelector('.tab[onclick*=\\'va\\']').click()`});
+      hits.push({type:'VA',color:'#4ade80',label:`${esc(v.name)} — ${v.cat} · profit ${fmt(v.profit)}`,action:`document.querySelector('.tab[onclick*=\\'va\\']').click()`});
   });
   modeles.forEach((m,i)=>{
     if((m.name||'').toLowerCase().includes(q)||(m.platform||'').toLowerCase().includes(q)||(m.notes||'').toLowerCase().includes(q))
-      hits.push({type:'Modèle',color:'#f472b6',label:`${m.name||'—'} — ${m.platform||''} · split ${m.split||'?'}%`,action:`document.querySelector('.tab[onclick*=\\'modeles\\']').click()`});
+      hits.push({type:'Modèle',color:'#f472b6',label:`${esc(m.name||'—')} — ${m.platform||''} · split ${m.split||'?'}%`,action:`document.querySelector('.tab[onclick*=\\'modeles\\']').click()`});
   });
   if(!hits.length){res.innerHTML='<div style="font-size:12px;color:#444;text-align:center;padding:16px">Aucun résultat pour "'+q+'"</div>';return;}
   res.innerHTML=hits.slice(0,30).map(h=>`<div class="gsr-item" onclick="${h.action};closeGSearch()"><span class="gsr-tag" style="background:#1a1a1a;color:${h.color}">${h.type}</span><span style="font-size:12px;color:#ccc">${h.label}</span></div>`).join('');
@@ -3104,7 +3165,7 @@ function renderExpenseRecap(){
   const grand=rows.reduce((s,r)=>s+r.total,0),gMoi=rows.reduce((s,r)=>s+r.moi,0),gAsso=rows.reduce((s,r)=>s+r.asso,0);
   const kpi=(lbl,val,col,bd)=>`<div style="flex:1;min-width:120px;background:#0e0e0f;border:1px solid ${bd};border-radius:9px;padding:9px 13px"><div style="font-size:10px;color:${col};text-transform:uppercase;letter-spacing:.05em">${lbl}</div><div style="font-size:17px;font-weight:700;color:${col};margin-top:3px">${fmtR(val)}</div></div>`;
   const cell=(v,col)=>v>0?`<span style="color:${col}">${fmtR(v)}</span>`:'<span style="color:#333">-</span>';
-  const table=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="font-size:10px;text-transform:uppercase;letter-spacing:.04em"><th style="text-align:left;padding:4px 0;color:#666;font-weight:600">Dépense</th><th style="text-align:right;padding:4px 12px;color:#60a5fa;font-weight:600">Moi</th><th style="text-align:right;padding:4px 12px;color:#e879f9;font-weight:600">Associé</th><th style="text-align:right;padding:4px 0;color:#888;font-weight:600">Total</th></tr></thead><tbody>${rows.map(r=>`<tr style="border-top:0.5px solid #191919"><td style="text-align:left;padding:5px 0;color:#ccc;white-space:nowrap">${r.name}</td><td style="text-align:right;padding:5px 12px">${cell(r.moi,'#60a5fa')}</td><td style="text-align:right;padding:5px 12px">${cell(r.asso,'#e879f9')}</td><td style="text-align:right;padding:5px 0;color:#eee;font-weight:600">${fmtR(r.total)}</td></tr>`).join('')}</tbody></table></div>`;
+  const table=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="font-size:10px;text-transform:uppercase;letter-spacing:.04em"><th style="text-align:left;padding:4px 0;color:#666;font-weight:600">Dépense</th><th style="text-align:right;padding:4px 12px;color:#60a5fa;font-weight:600">Moi</th><th style="text-align:right;padding:4px 12px;color:#e879f9;font-weight:600">Associé</th><th style="text-align:right;padding:4px 0;color:#888;font-weight:600">Total</th></tr></thead><tbody>${rows.map(r=>`<tr style="border-top:0.5px solid #191919"><td style="text-align:left;padding:5px 0;color:#ccc;white-space:nowrap">${esc(r.name)}</td><td style="text-align:right;padding:5px 12px">${cell(r.moi,'#60a5fa')}</td><td style="text-align:right;padding:5px 12px">${cell(r.asso,'#e879f9')}</td><td style="text-align:right;padding:5px 0;color:#eee;font-weight:600">${fmtR(r.total)}</td></tr>`).join('')}</tbody></table></div>`;
   el.innerHTML=`<div style="display:flex;gap:9px;margin-bottom:11px;flex-wrap:wrap">${kpi('Total dépenses',grand,'#f87171','#2a1e1e')}${kpi('💳 Payé par Moi',gMoi,'#60a5fa','#1e2130')}${kpi('💳 Payé par Associé',gAsso,'#e879f9','#2a1e30')}</div><button type="button" onclick="var d=document.getElementById('exp-recap-detail');var o=d.style.display==='none';d.style.display=o?'block':'none';this.querySelector('.cv').textContent=o?'▴':'▾';this.querySelector('.tx').textContent=o?'Masquer le détail':'Voir le détail par dépense'" style="background:#141416;border:1px solid #26262c;border-radius:8px;padding:7px 12px;color:#bbb;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:7px"><span class="tx">Voir le détail par dépense</span> <b style="color:#ddd">(${rows.length})</b> <span class="cv" style="color:#666;font-size:10px">▾</span></button><div id="exp-recap-detail" style="display:none;margin-top:11px">${table}</div>`;
 }
 function renderEditLog(){
@@ -3116,7 +3177,7 @@ function renderEditLog(){
   el.innerHTML=editLog.map(l=>{const c=colors[l.action]||'#888';return `<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:0.5px solid #1a1a1a">
     <span style="font-size:10px;color:#444;min-width:130px;flex-shrink:0;margin-top:1px">${fmt2(l.ts)}</span>
     <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;background:${c}20;color:${c};border:0.5px solid ${c};flex-shrink:0">${l.action}</span>
-    <span style="font-size:12px;color:#888">${l.detail}</span>
+    <span style="font-size:12px;color:#888">${esc(l.detail)}</span>
   </div>`;}).join('');
 }
 
