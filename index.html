@@ -227,7 +227,7 @@ select.ifield{cursor:pointer}
 .export-dropdown-btn{background:#1a1a1a;border:0.5px solid #2a2a2a;border-radius:7px;padding:5px 12px;color:#888;font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px}
 .export-dropdown-btn:hover{border-color:#444;color:#bbb}
 .export-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);background:#141414;border:0.5px solid #2a2a2a;border-radius:9px;min-width:160px;padding:4px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.5)}
-.export-dropdown:hover .export-menu{display:block}
+.export-dropdown:hover .export-menu,.export-dropdown:focus-within .export-menu,.export-dropdown.open .export-menu{display:block}
 .export-menu button,.export-menu label{display:flex;width:100%;text-align:left;background:none;border:none;padding:7px 10px;color:#888;font-size:12px;cursor:pointer;border-radius:6px;transition:all .1s;font-family:'Inter',system-ui,sans-serif}
 .export-menu button:hover,.export-menu label:hover{background:#1e1e1e;color:#ccc}
 #api-dot{width:7px;height:7px;border-radius:50%;background:#2a2a2a;display:inline-block;flex-shrink:0;transition:background .3s}
@@ -547,7 +547,7 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
       </div>
       <div style="flex:1;min-width:110px;background:#0e0e0e;border-radius:6px;padding:10px 12px;border:0.5px solid #1e1e1e;border-top:1.5px solid #f87171">
         <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Reste à recevoir</div>
-        <div style="font-size:18px;font-weight:700" id="vir-reste" style="color:#f87171">—</div>
+        <div id="vir-reste" style="font-size:18px;font-weight:700;color:#f87171">—</div>
         <div style="font-size:9px;color:#3a3a3a;margin-top:2px" id="vir-reste-det">–</div>
       </div>
     </div>
@@ -726,7 +726,7 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
   </div>
 
   <!-- CONCENTRATION DE RISQUE -->
-  <div class="panel" style="margin-bottom:12px" id="risk-panel" style="display:none">
+  <div class="panel" id="risk-panel" style="margin-bottom:12px;display:none">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:14px">
       <div>
         <div class="panel-title">⚠️ Concentration de risque</div>
@@ -738,7 +738,7 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
     <div id="risk-bars"></div>
   </div>
 
-  <div class="panel" style="margin-bottom:12px" id="source-analytics" style="display:none">
+  <div class="panel" id="source-analytics" style="margin-bottom:12px;display:none">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:14px">
       <div>
         <div class="panel-title">Rentabilité par source</div>
@@ -856,7 +856,7 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
   <div class="dash-header">
     <div><div class="dash-title">🎭 Modèles</div><div class="dash-sub">contrats · splits · paiements</div></div>
   </div>
-  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+  <div class="kpi-grid" style="margin-bottom:16px">
     <div class="kpi" style="border-top-color:#f472b6"><div class="kpi-label">Modèles actifs</div><div class="kpi-value" style="color:#f472b6" id="mod-count">0</div></div>
     <div class="kpi" style="border-top-color:#60a5fa"><div class="kpi-label"><span class="tip">Net base<i class="tip-icon">i</i><span class="tip-box">Net total des entrées — base du calcul split</span></span></div><div class="kpi-value" style="color:#60a5fa" id="mod-net">$0</div></div>
     <div class="kpi" style="border-top-color:#f87171"><div class="kpi-label">Dû selon contrats</div><div class="kpi-value" style="color:#f87171" id="mod-du">$0</div></div>
@@ -920,6 +920,16 @@ const fmtS=v=>(v<0?'-':'')+fmtR(v);
 // <img src=x onerror="..."> exécutait du code à chaque affichage de l'historique,
 // et un simple « < » (ex : « pub <10$ ») cassait la mise en page.
 const _ESC={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+// Tactile : sur telephone il n y a pas de survol. Un appui ouvre/ferme le menu
+// Exporter et les infobulles (avant, ils etaient totalement inaccessibles au doigt).
+document.addEventListener('click',function(ev){
+  const dd=ev.target.closest('.export-dropdown');
+  document.querySelectorAll('.export-dropdown.open').forEach(function(x){ if(x!==dd)x.classList.remove('open'); });
+  if(dd && ev.target.closest('.export-dropdown-btn')) dd.classList.toggle('open');
+  const tip=ev.target.closest('.tip');
+  document.querySelectorAll('.tip.open').forEach(function(x){ if(x!==tip)x.classList.remove('open'); });
+  if(tip && ev.target.closest('.tip-icon')) tip.classList.toggle('open');
+},true);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>_ESC[c]);
 const pct=(v,b)=>b>0?Math.round(v/b*100)+'% du CA':'–';
 const CC={'Manager':'#facc15','Twitter':'#60a5fa','ADS':'#fb923c','SFS':'#4ade80','Instagram':'#f472b6','Threads':'#a78bfa','Reddit':'#f87171','TikTok':'#22d3ee','Autre':'#888'};
@@ -1026,7 +1036,7 @@ function renderModeles(){
   if(!modeles.length){el.innerHTML='<div class="emsg">Aucun modèle ajouté</div>';return;}
   el.innerHTML=modeles.map(m=>{
     const du=totalNet*(m.split_pct/100);
-    const paid=(m.payments||[]).reduce((s,p)=>s+p.amount,0);
+    const paid=(m.payments||[]).reduce((s,p)=>s+(p.amount||0),0);
     const reste=du-paid;
     const resteColor=reste<=0?'#4ade80':'#f87171';
     const ini=m.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
@@ -1763,8 +1773,9 @@ function rh(){
   if(_histPage>=totalPages)_histPage=totalPages-1;
   const start=_histPage*_histPerPage;
   const page=f.slice(start,start+_histPerPage);
-  document.getElementById('hsub').textContent=total?(total+' entrée(s)'+(totalPages>1?' — page '+(_histPage+1)+'/'+totalPages:'')):'aucune entrée dans cette période';
-  if(!total){document.getElementById('txlist').innerHTML='<div class="emsg">Aucune entrée pour cette période</div>';document.getElementById('hist-pagination').innerHTML='';return;}
+  const _filtreActif = !!q || _histPayerFilter!=='tous';
+  document.getElementById('hsub').textContent=total?(total+' entrée(s)'+(_filtreActif?' (filtré)':'')+(totalPages>1?' — page '+(_histPage+1)+'/'+totalPages:'')):(_filtreActif?'aucun résultat pour ce filtre':'aucune entrée dans cette période');
+  if(!total){document.getElementById('txlist').innerHTML=_filtreActif?'<div class="emsg">Aucun résultat — <button onclick="document.getElementById(\'hist-search\').value=\'\';setHistPayerFilter(\'tous\',document.getElementById(\'hpf-tous\'));" style="background:none;border:none;color:var(--acc);cursor:pointer;text-decoration:underline;font-size:inherit;font-family:inherit">effacer le filtre</button></div>':'<div class="emsg">Aucune entrée pour cette période</div>';document.getElementById('hist-pagination').innerHTML='';return;}
   document.getElementById('txlist').innerHTML=page.map((e,i)=>{
     const ri=base.indexOf(e);
     const mg=e.brut>0?Math.round(e.profit/e.brut*100):0;
@@ -2640,11 +2651,18 @@ function restoreTab() {
 // ── Toast confirm (remplace confirm() natif) ──
 function showConfirm(msg) {
   return new Promise(resolve => {
+    // Echap ou clic sur le fond = "Non" (avant, la boite ne se fermait que par les
+    // deux boutons, elle pouvait donner l impression d etre bloquee).
+    const _ov=document.getElementById('confirm-overlay');
+    const _fin=(v)=>{ document.removeEventListener('keydown',_esc,true); if(_ov)_ov.onclick=null; _ov.style.display='none'; resolve(v); };
+    const _esc=(e)=>{ if(e.key==='Escape'){ e.preventDefault(); _fin(false); } };
+    document.addEventListener('keydown',_esc,true);
+    if(_ov) _ov.onclick=(e)=>{ if(e.target===_ov) _fin(false); };
     const overlay = document.getElementById('confirm-overlay');
     document.getElementById('confirm-msg').textContent = msg;
     overlay.style.display = 'flex';
-    document.getElementById('confirm-yes').onclick = () => { overlay.style.display = 'none'; resolve(true); };
-    document.getElementById('confirm-no').onclick = () => { overlay.style.display = 'none'; resolve(false); };
+    document.getElementById('confirm-yes').onclick = () => _fin(true);
+    document.getElementById('confirm-no').onclick  = () => _fin(false);
   });
 }
 
@@ -2702,7 +2720,7 @@ function renderRecap() {
   el.innerHTML = `<div style="overflow-x:auto"><table class="recap-table">
     <thead><tr>
       <th>Mois</th><th>CA Brut</th><th>Net</th>
-      <th>VA</th><th>Modèle</th><th>Chat IA</th><th>Chat Hum.</th><th>Dépenses</th>
+      <th>VA</th><th>Modèle</th><th>Chat IA</th><th>Chat Hum.</th><th>Dép. diverses</th>
       <th>Profit</th><th>Taux marge</th><th style="color:#60a5fa">Avancé Moi</th><th style="color:#e879f9">Avancé Asso.</th>
     </tr></thead>
     <tbody>
@@ -2778,17 +2796,39 @@ function saveDiscordWebhook() {
   }, 1500);
 }
 
+// Envoi RÉEL vers Discord. Avant, apiFetch interceptait /api/settings/notify-discord
+// et renvoyait {ok:true} sans rien envoyer : le bouton « Tester » réussissait TOUJOURS
+// et aucune notification n'est jamais partie. Les webhooks Discord acceptent un POST
+// direct depuis le navigateur, on s'en sert.
 async function sendDiscordNotif(message) {
-  if (!_apiConnected) return;
-  try { await apiFetch('/api/settings/notify-discord', { method: 'POST', body: JSON.stringify({ message }) }); }
-  catch (e) { console.warn('Discord notif failed', e); }
+  const url = (document.getElementById('discord-webhook')?.value || '').trim();
+  if (!url) return { ok:false, raison:'aucun webhook enregistré' };
+  if (!/^https:\/\/(discord\.com|discordapp\.com)\/api\/webhooks\//.test(url)) {
+    return { ok:false, raison:"ce n'est pas une adresse de webhook Discord" };
+  }
+  try {
+    const res = await fetch(url, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ content: String(message).slice(0,1900) })
+    });
+    return res.ok ? { ok:true } : { ok:false, raison:'Discord a répondu ' + res.status };
+  } catch (e) {
+    console.warn('Discord notif failed', e);
+    return { ok:false, raison:'envoi impossible (réseau ou adresse invalide)' };
+  }
 }
 
 async function testDiscord() {
   const btn = document.querySelector('button[onclick="testDiscord()"]');
   if (btn) { btn.textContent = '…'; btn.disabled = true; }
-  await sendDiscordNotif('✅ Test Shinra Finance — webhook connecté !');
-  if (btn) { btn.textContent = '✓'; setTimeout(() => { btn.textContent = 'Tester'; btn.disabled = false; }, 2000); }
+  const r = await sendDiscordNotif('✅ Test Shinra Finance — webhook connecté !');
+  if (btn) {
+    btn.textContent = r && r.ok ? '✓' : '✕';
+    btn.style.color = r && r.ok ? '#4ade80' : '#f87171';
+    setTimeout(() => { btn.textContent = 'Tester'; btn.style.color=''; btn.disabled = false; }, 2500);
+  }
+  if (!r || !r.ok) showSaveStatus('⚠ Discord : ' + ((r&&r.raison)||'échec'), '#f87171');
+  else showSaveStatus('✓ Message envoyé sur Discord');
 }
 
 function launchConfetti(){
@@ -3008,7 +3048,13 @@ window.duplicateEntry = function(idx){
   document.getElementById('ich').value=entry.ch;
   document.getElementById('entry-date-input').value=ts();
   document.getElementById('ainps').innerHTML='';afs=[];afc=0;
-  (entry.alI||[]).forEach(x=>addAF(x.name,x.val));
+  // Les PAYEURS doivent suivre la copie : sans eux, des avances payées par l'associé
+  // repassaient sur « Moi » et faussaient le rapprochement. Et la note d'une AUTRE
+  // entrée restait collée dans le champ.
+  (entry.alI||[]).forEach(x=>addAF(x.name,x.val,x.paidBy||'moi'));
+  const _pbD=entry.paidBy||{};
+  try{ spb('pb-iv',_pbD.va||'moi'); spb('pb-im',_pbD.mo||'moi'); spb('pb-ici',_pbD.ci||'moi'); spb('pb-ich',_pbD.ch||'moi'); }catch(e){}
+  const _nt=document.getElementById('entry-notes'); if(_nt)_nt.value='';
   document.getElementById('edit-banner').style.display='none';
   document.getElementById('sbtn-text').textContent='+ Enregistrer cette entrée';
   document.getElementById('edlbl').textContent='Entrée dupliquée — modifie si besoin';
@@ -3017,7 +3063,7 @@ window.duplicateEntry = function(idx){
 };
 
 window.addVA = function() {
-  const n=document.getElementById('van').value.trim()||'VA sans nom';
+  const n=document.getElementById('van').value.trim(); if(!n){ flashMsg('va-msg','\u26a0 Donne un nom au VA','#f87171'); const _v=document.getElementById('van'); if(_v)_v.focus(); return; }
   const cat=document.getElementById('vac').value;
   const subs=parseFloat(document.getElementById('vasubs').value)||0;
   const ca=parseFloat(document.getElementById('vaca').value)||0;
