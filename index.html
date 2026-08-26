@@ -644,7 +644,11 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
     </div>
     <div class="sdiv"><span class="sdot" style="background:#e879f9"></span><span style="color:#e879f9">Dépenses aléatoires</span></div>
     <div id="ainps"></div>
-    <button class="abtn" onclick="addAF()">+ Ajouter une dépense</button>
+    <datalist id="dep-names"></datalist>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+      <button class="abtn" onclick="addAF()">+ Ajouter une dépense</button>
+      <button class="abtn" id="btn-charges" onclick="ajouterChargesHabituelles()" title="Reprend d'un coup les dépenses qui reviennent chaque mois, avec leur dernier montant connu">⟳ Charges habituelles</button>
+    </div>
     <div style="margin-top:10px">
       <div class="ilbl" style="display:flex;justify-content:space-between;align-items:center">
         <span>Notes (optionnel)</span>
@@ -652,6 +656,7 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
       </div>
       <textarea class="ifield" id="entry-notes" placeholder="Ex: bonne période, pub bien performé…" rows="2" style="resize:vertical;line-height:1.5"></textarea>
     </div>
+    <div id="entry-warnings" style="display:none;margin-top:10px"></div>
     <button class="sbtn" onclick="se()"><span id="sbtn-text">+ Enregistrer cette entrée</span></button>
     <div id="se-msg" style="font-size:12px;text-align:center;min-height:16px;margin-top:8px;opacity:0;transition:opacity .2s"></div>
   </div>
@@ -885,6 +890,11 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
   <div class="dash-header">
     <div><div class="dash-title">Récap mensuel</div><div class="dash-sub">évolution mois par mois</div></div>
     <button onclick="exportRecapCSV()" style="background:#1a1a1a;border:0.5px solid #333;border-radius:6px;padding:6px 14px;color:#888;font-size:11px;cursor:pointer">⬇ Export CSV</button>
+  </div>
+  <div class="panel" style="margin-bottom:12px">
+    <div class="panel-title">📊 Dépenses poste par poste</div>
+    <div class="panel-sub">6 derniers mois · 🔺 dérape (+30% vs sa moyenne) · 💤 arrêtée depuis 2 mois</div>
+    <div id="dep-matrix" style="margin-top:12px"><div class="emsg">Aucune dépense sur les 6 derniers mois</div></div>
   </div>
   <div class="panel" style="margin-bottom:12px">
     <div class="panel-title">Profit par mois</div>
@@ -1469,10 +1479,194 @@ function gf(){
   return ents.filter(e=>{const d=new Date(e.date+'T00:00:00');return d>=start&&d<=end;});
 }
 function gv(id){return parseFloat(document.getElementById(id).value)||0;}
-function addAF(n='',v='',pb='moi'){const id=++afc;afs.push(id);const d=document.createElement('div');d.className='arow';d.id='ar-'+id;const cls=pb==='associe'?'pb-btn assoc':'pb-btn';const txt=pb==='associe'?'Asso.':'Moi';d.innerHTML=`<input class="ifield" style="flex:1" type="text" id="an-${id}" placeholder="Nom (ex: pub Meta)" value="${esc(n)}" oninput="uk()"><input class="ifield" style="width:90px;flex-shrink:0" type="number" id="av-${id}" placeholder="$" value="${v}" oninput="uk()"><button class="${cls}" data-pb="${pb}" onclick="tpb(this);uk()" type="button">${txt}</button><button class="arm" onclick="ra(${id})">×</button>`;document.getElementById('ainps').appendChild(d);}
+function addAF(n='',v='',pb='moi'){const id=++afc;afs.push(id);const d=document.createElement('div');d.className='arow';d.id='ar-'+id;const cls=pb==='associe'?'pb-btn assoc':'pb-btn';const txt=pb==='associe'?'Asso.':'Moi';d.innerHTML=`<input class="ifield" style="flex:1" type="text" id="an-${id}" placeholder="Nom (ex: pub Meta)" value="${esc(n)}" list="dep-names" autocomplete="off" oninput="uk()"><input class="ifield" style="width:90px;flex-shrink:0" type="number" id="av-${id}" placeholder="$" value="${v}" oninput="uk()"><button class="${cls}" data-pb="${pb}" onclick="tpb(this);uk()" type="button">${txt}</button><button class="arm" onclick="ra(${id})">×</button>`;document.getElementById('ainps').appendChild(d);}
 function ra(id){const r=document.getElementById('ar-'+id);if(r)r.remove();afs=afs.filter(f=>f!==id);uk();}
 function gat(){return afs.reduce((s,id)=>s+(parseFloat(document.getElementById('av-'+id)?.value)||0),0);}
 function gai(){return afs.map(id=>({name:document.getElementById('an-'+id)?.value||'Dépense',val:parseFloat(document.getElementById('av-'+id)?.value)||0,paidBy:document.getElementById('ar-'+id)?.querySelector('[data-pb]')?.dataset.pb||'moi'})).filter(i=>i.val>0);}
+const _TAUX=0.78;   // part qui te reste apres commission plateforme
+// ─────────────────────────────────────────────────────────────────────────────
+// GARDE-FOUS DE SAISIE · AUTOCOMPLÉTION · CHARGES HABITUELLES · DÉPENSES PAR MOIS
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Nom de dépense normalisé (pour regrouper « Proxy », « proxys », « PROXY  »).
+function _depKey(n){ return String(n||'').trim().toLowerCase().replace(/\s+/g,' '); }
+
+// Toutes les dépenses diverses de l'historique, regroupées par nom normalisé.
+// Renvoie : clé -> {label le plus fréquent, dernier montant, mois où elle apparaît}
+function _depIndex(){
+  const idx={};
+  (ents||[]).forEach(e=>{
+    const mois=(e.date||'').slice(0,7);
+    (e.alI||[]).forEach(x=>{
+      const k=_depKey(x.name); if(!k) return;
+      if(!idx[k]) idx[k]={labels:{},last:0,lastDate:'',mois:new Set(),total:0};
+      const o=idx[k];
+      const lab=String(x.name||'').trim();
+      o.labels[lab]=(o.labels[lab]||0)+1;
+      o.mois.add(mois);
+      o.total+=(x.val||0);
+      if((e.date||'')>=o.lastDate){ o.lastDate=e.date||''; o.last=x.val||0; }
+    });
+  });
+  Object.values(idx).forEach(o=>{
+    o.label=Object.keys(o.labels).sort((a,b)=>o.labels[b]-o.labels[a])[0]||'Dépense';
+  });
+  return idx;
+}
+
+// (3a) Autocomplétion : alimente le <datalist> avec les noms déjà utilisés,
+// les plus fréquents en premier. Évite « Proxy / proxys / Proxies » en triple.
+function majListeDepenses(){
+  const dl=document.getElementById('dep-names'); if(!dl) return;
+  const idx=_depIndex();
+  const noms=Object.values(idx)
+    .sort((a,b)=>b.mois.size-a.mois.size||b.total-a.total)
+    .map(o=>o.label).slice(0,120);
+  dl.innerHTML=noms.map(n=>`<option value="${esc(n)}"></option>`).join('');
+}
+
+// (3b) Charges habituelles : réinjecte d'un coup les dépenses qui reviennent
+// (présentes dans au moins 2 des 3 derniers mois saisis), avec leur dernier montant.
+// Zéro configuration : la liste se déduit de l'historique.
+function ajouterChargesHabituelles(){
+  const idx=_depIndex();
+  const moisConnus=[...new Set((ents||[]).map(e=>(e.date||'').slice(0,7)).filter(Boolean))].sort().reverse();
+  const recents=new Set(moisConnus.slice(0,3));
+  if(!recents.size){ flashMsg('se-msg','⚠ Pas encore d\'historique pour déduire tes charges','#facc15'); return; }
+  // déjà présentes dans le formulaire -> on ne double pas
+  const dejaLa=new Set((typeof afs!=='undefined'?afs:[]).map(id=>_depKey(document.getElementById('an-'+id)?.value)));
+  const candidats=Object.values(idx)
+    .map(o=>({o,n:[...o.mois].filter(m=>recents.has(m)).length}))
+    .filter(c=>c.n>=2 && !dejaLa.has(_depKey(c.o.label)))
+    .sort((a,b)=>b.n-a.n||b.o.last-a.o.last);
+  if(!candidats.length){ flashMsg('se-msg','⚠ Aucune charge récurrente détectée (ou déjà toutes ajoutées)','#facc15'); return; }
+  candidats.forEach(c=>addAF(c.o.label,c.o.last||'','moi'));
+  uk();
+  flashMsg('se-msg','✓ '+candidats.length+' charge(s) habituelle(s) ajoutée(s) — vérifie les montants');
+}
+
+// (2) Garde-fous : bandeau NON bloquant sous le formulaire. Rendu à chaque frappe
+// depuis uk(). Il prévient, il n'empêche jamais d'enregistrer.
+function renderEntryWarnings(){
+  const box=document.getElementById('entry-warnings'); if(!box) return;
+  const w=[];
+  const br=gv('ib'), tg=(typeof gv==='function'&&document.getElementById('itg'))?gv('itg'):0;
+  const va=gv('iv'), mo=gv('im'), ci=gv('ici'), ch=gv('ich');
+  const items=gai(), alT=gat();
+  const date=document.getElementById('entry-date-input')?.value||'';
+  const saisieEnCours = br>0||tg>0||va>0||mo>0||ci>0||ch>0||alT>0;
+
+  // a) Doublon de date (invisible aujourd'hui : l'historique est paginé par 20)
+  if(date){
+    const dup=(ents||[]).find(e=>e.date===date && (!_editingId || e.id!==_editingId));
+    if(dup){
+      const i=(typeof gf==='function'?gf():ents).indexOf(dup);
+      w.push({t:'⚠ Une entrée existe déjà le '+dl(date)+' (CA '+fmtR(dup.brut||0)+' · profit '+fmtS(dup.profit||0)+')',
+              a:i>=0?'<button onclick="window.editEntry('+i+')" style="background:none;border:none;color:var(--acc);cursor:pointer;text-decoration:underline;font:inherit">✏ Ouvrir celle-là</button>':''});
+    }
+  }
+  // b) Montant très inhabituel (virgule oubliée, zéro en trop)
+  const passes=(ents||[]).slice(0,30).map(e=>(e.brut||0)+(e.tgNet||0)).filter(v=>v>0).sort((a,b)=>a-b);
+  if(passes.length>=5 && (br+tg)>0){
+    const med=passes[Math.floor(passes.length/2)];
+    if(med>0 && (br+tg)>med*5) w.push({t:'⚠ CA '+Math.round((br+tg)/med)+'× ta moyenne habituelle (~'+fmtR(med)+'). Un zéro en trop ?'});
+    if(med>0 && (br+tg)<med/5) w.push({t:'⚠ CA très en dessous de ton habitude (~'+fmtR(med)+'). Un chiffre manquant ?'});
+  }
+  // c) Entrée en perte
+  if(saisieEnCours){
+    const net=br*_TAUX+tg, dep=va+mo+ci+ch+alT;
+    if(dep>net) w.push({t:'⚠ Cette entrée est en perte de '+fmtR(dep-net)+' (dépenses > net)'});
+  }
+  // d) Dépense sans nom : elle polluera le récap pour toujours
+  const sansNom=(typeof afs!=='undefined'?afs:[]).filter(id=>{
+    const n=(document.getElementById('an-'+id)?.value||'').trim();
+    const v=parseFloat(document.getElementById('av-'+id)?.value)||0;
+    return v>0 && !n;
+  }).length;
+  if(sansNom) w.push({t:'⚠ '+sansNom+' dépense(s) avec un montant mais sans nom — impossible à retrouver ensuite'});
+  // e) Dépenses probablement oubliées
+  if(br>0 && va===0 && mo===0 && ci===0 && ch===0 && alT===0){
+    const recentes=(ents||[]).slice(0,10);
+    const avecDep=recentes.filter(e=>((e.va||0)+(e.mo||0)+(e.ci||0)+(e.ch||0)+(e.alT||0))>0).length;
+    if(recentes.length>=5 && avecDep>=recentes.length-1) w.push({t:'⚠ Aucune dépense saisie, alors que tes entrées récentes en ont toutes'});
+  }
+
+  if(!w.length){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='block';
+  box.innerHTML='<div style="background:#231d0c;border:1px solid #4a3c12;border-left:3px solid #facc15;border-radius:8px;padding:9px 12px">'
+    + w.map(x=>'<div style="font-size:11.5px;color:#e8d9a0;padding:2px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span>'+x.t+'</span>'+(x.a||'')+'</div>').join('')
+    + '</div>';
+}
+
+// (4) Tableau « dépense × mois » : la vue pour décider quoi couper.
+function renderDepensesParMois(){
+  const el=document.getElementById('dep-matrix'); if(!el) return;
+  const MOIS=6;
+  const moisList=[]; const ref=new Date();
+  for(let i=MOIS-1;i>=0;i--){ const d=new Date(ref.getFullYear(),ref.getMonth()-i,1); moisList.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); }
+  const libMois=m=>{const[y,mo]=m.split('-');return ['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'][+mo-1]+' '+y.slice(2);};
+
+  const lignes={};
+  const ajout=(nom,mois,val)=>{ if(!val||val<=0) return; const k=_depKey(nom); if(!k) return;
+    if(!lignes[k]) lignes[k]={label:nom,par:{},total:0};
+    lignes[k].par[mois]=(lignes[k].par[mois]||0)+val; lignes[k].total+=val; };
+  let caTotal=0;
+  (ents||[]).forEach(e=>{
+    const m=(e.date||'').slice(0,7); if(moisList.indexOf(m)<0) return;
+    caTotal+=(e.brut||0)+(e.tgNet||0);
+    ajout('VA',m,e.va||0); ajout('Modèle',m,e.mo||0); ajout('Chat IA',m,e.ci||0); ajout('Chat Humain',m,e.ch||0);
+    (e.alI||[]).forEach(x=>ajout(String(x.name||'Divers').trim()||'Divers',m,x.val||0));
+  });
+  const rows=Object.values(lignes).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
+  if(!rows.length){ el.innerHTML='<div class="emsg">Aucune dépense sur les 6 derniers mois</div>'; return; }
+
+  const dernier=moisList[moisList.length-1], avant=moisList[moisList.length-2];
+  const corps=rows.map(r=>{
+    const cur=r.par[dernier]||0, prev=r.par[avant]||0;
+    // Moyenne calculée UNIQUEMENT sur les mois qui ont des données : sinon les mois
+    // vides du début diluaient la moyenne et faisaient passer une dépense parfaitement
+    // stable (300/300/300) pour une dépense qui dérape.
+    const _prec=moisList.slice(-4,-1).map(m=>r.par[m]||0).filter(v=>v>0);
+    const moy3=_prec.length?_prec.reduce((a,b)=>a+b,0)/_prec.length:0;
+    const derape = _prec.length>=2 && cur>moy3*1.3;
+    const arretee = cur===0 && prev===0 && r.total>0;
+    const delta = prev>0 ? Math.round((cur-prev)/prev*100) : (cur>0?null:0);
+    const annuel = Math.round(r.total/MOIS*12);
+    const poids = caTotal>0 ? (r.total/caTotal*100) : 0;
+    const cells=moisList.map(m=>{const v=r.par[m]||0;
+      return '<td style="text-align:right;padding:5px 8px;color:'+(v?'#ccc':'#2e2e33')+';white-space:nowrap">'+(v?fmtR(v):'·')+'</td>';}).join('');
+    const nomCol='<td style="text-align:left;padding:5px 8px;white-space:nowrap;color:'+(arretee?'#5a5a62':'#ddd')+'">'
+      +(derape?'<span title="Dépasse de +30% sa moyenne 3 mois">🔺 </span>':'')
+      +(arretee?'<span title="Plus rien depuis 2 mois : abonnement encore payé ?">💤 </span>':'')
+      +esc(r.label)+'</td>';
+    const dCol='<td style="text-align:right;padding:5px 8px;white-space:nowrap;color:'+(delta===null?'#666':(delta>0?'#f87171':(delta<0?'#4ade80':'#666')))+'">'
+      +(delta===null?'nouveau':(delta===0?'—':(delta>0?'+':'')+delta+'%'))+'</td>';
+    return '<tr style="border-top:0.5px solid #191919'+(derape?';background:#1e1410':'')+'">'+nomCol+cells
+      +'<td style="text-align:right;padding:5px 8px;color:#eee;font-weight:600;white-space:nowrap">'+fmtR(r.total)+'</td>'
+      +'<td style="text-align:right;padding:5px 8px;color:#8a8a90;white-space:nowrap" title="Coût sur 12 mois à ce rythme">'+fmtR(annuel)+'</td>'
+      +'<td style="text-align:right;padding:5px 8px;color:#8a8a90;white-space:nowrap">'+(poids>=0.1?poids.toFixed(1)+'%':'<0.1%')+'</td>'
+      +dCol+'</tr>';
+  }).join('');
+
+  const totalGen=rows.reduce((s,r)=>s+r.total,0);
+  const nbDerape=rows.filter(r=>{const cur=r.par[dernier]||0;const p=moisList.slice(-4,-1).map(m=>r.par[m]||0).filter(v=>v>0);const mo=p.length?p.reduce((a,b)=>a+b,0)/p.length:0;return p.length>=2&&cur>mo*1.3;}).length;
+  const nbArret=rows.filter(r=>(r.par[dernier]||0)===0&&(r.par[avant]||0)===0).length;
+
+  el.innerHTML=
+    '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:11px">'
+    +'<div style="flex:1;min-width:130px;background:#0e0e0f;border:1px solid #2a1e1e;border-radius:9px;padding:9px 13px"><div style="font-size:10px;color:#f87171;text-transform:uppercase;letter-spacing:.05em">Dépenses 6 mois</div><div style="font-size:17px;font-weight:700;color:#f87171;margin-top:3px">'+fmtR(totalGen)+'</div><div style="font-size:9px;color:#4a4a52;margin-top:2px">soit '+fmtR(Math.round(totalGen/MOIS*12))+' / an à ce rythme</div></div>'
+    +(nbDerape?'<div style="flex:1;min-width:130px;background:#1e1410;border:1px solid #4a2c1a;border-radius:9px;padding:9px 13px"><div style="font-size:10px;color:#fb923c;text-transform:uppercase;letter-spacing:.05em">🔺 Qui dérapent</div><div style="font-size:17px;font-weight:700;color:#fb923c;margin-top:3px">'+nbDerape+'</div><div style="font-size:9px;color:#4a4a52;margin-top:2px">+30% vs leur moyenne</div></div>':'')
+    +(nbArret?'<div style="flex:1;min-width:130px;background:#0e0e0f;border:1px solid #1e1e22;border-radius:9px;padding:9px 13px"><div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">💤 Arrêtées</div><div style="font-size:17px;font-weight:700;color:#8a8a90;margin-top:3px">'+nbArret+'</div><div style="font-size:9px;color:#4a4a52;margin-top:2px">rien depuis 2 mois</div></div>':'')
+    +'</div>'
+    +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px">'
+    +'<thead><tr style="font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:#666">'
+    +'<th style="text-align:left;padding:4px 8px">Dépense</th>'
+    +moisList.map(m=>'<th style="text-align:right;padding:4px 8px;white-space:nowrap">'+libMois(m)+'</th>').join('')
+    +'<th style="text-align:right;padding:4px 8px">Total</th><th style="text-align:right;padding:4px 8px" title="Coût sur 12 mois à ce rythme">/ an</th>'
+    +'<th style="text-align:right;padding:4px 8px">% CA</th><th style="text-align:right;padding:4px 8px">Δ mois</th>'
+    +'</tr></thead><tbody>'+corps+'</tbody></table></div>';
+}
+
 function renderForecast(){
   const card=document.getElementById('forecast-card');
   if(!card)return;
@@ -1685,6 +1879,8 @@ function uk(){
   if(_pd){setDelta('dvb',_pd.curr.br,_pd.prev.br);setDelta('dvn',_pd.curr.net,_pd.prev.net);setDelta('dvdep',_pd.curr.dep,_pd.prev.dep,true);setDelta('dvpr',_pd.curr.pr,_pd.prev.pr);}
   else{['dvb','dvn','dvdep','dvpr'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});}
   renderInsights();
+  try{renderEntryWarnings();}catch(e){}
+  try{majListeDepenses();}catch(e){}
   // Avances par associé
   let myAdv=0,assocAdv=0;
   const curAlI=gai();
@@ -2701,6 +2897,7 @@ function getMonthlyRecap() {
 }
 
 function renderRecap() {
+  try{renderDepensesParMois();}catch(e){console.warn('dep-matrix',e);}
   const data = getMonthlyRecap();
   const el = document.getElementById('recap-content');
   if (!data.length) { el.innerHTML = '<div class="emsg">Aucune donnée</div>'; return; }
