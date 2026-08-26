@@ -1018,7 +1018,13 @@ async function rmModelePayment(modelId,idx){
 }
 function renderModeles(){
   const totalNet=ents.reduce((s,e)=>s+(e.brut||0)*0.78,0);
-  const totalDu=modeles.reduce((s,m)=>s+totalNet*(m.split_pct/100),0);
+  // Le du de chaque modele se calcule sur le net genere DEPUIS SA DATE DE CONTRAT
+  // (champ m.start, jusqu ici stocke mais jamais utilise). Avant, chaque modele
+  // reclamait son % du net TOTAL : deux modeles a 50% et 30% faisaient reclamer
+  // 80% de tout le net, y compris la periode ou elles n etaient pas encore la.
+  const netDepuis=(d)=>ents.reduce((s,e)=>s+((!d||e.date>=d)?(e.brut||0)*0.78:0),0);
+  const duDe=(m)=>netDepuis(m.start)*((m.split_pct||0)/100);
+  const totalDu=modeles.reduce((s,m)=>s+duDe(m),0);
   // Le champ « Paiement Modèle » des entrées (e.mo) est de l argent REELLEMENT verse
   // aux modeles : sans le compter ici, la page affichait « reste a payer » alors que
   // la somme avait deja ete envoyee.
@@ -1035,7 +1041,7 @@ function renderModeles(){
   const el=document.getElementById('modeles-cards');if(!el)return;
   if(!modeles.length){el.innerHTML='<div class="emsg">Aucun modèle ajouté</div>';return;}
   el.innerHTML=modeles.map(m=>{
-    const du=totalNet*(m.split_pct/100);
+    const du=duDe(m);   // net depuis SA date de contrat, pas le net total
     const paid=(m.payments||[]).reduce((s,p)=>s+(p.amount||0),0);
     const reste=du-paid;
     const resteColor=reste<=0?'#4ade80':'#f87171';
@@ -1484,8 +1490,12 @@ function renderForecast(){
   const monthEntries=ents.filter(e=>e.date>=monthStart&&e.date<=refStr);
   if(!monthEntries.length||joursEcoules===0){card.style.display='none';return;}
 
-  const profitCumule=monthEntries.reduce((s,e)=>s+e.profit,0);
-  const moyenneJour=parseFloat((profitCumule/joursEcoules).toFixed(2));
+  const profitCumule=monthEntries.reduce((s,e)=>s+(e.profit||0),0);
+  // La moyenne se calcule sur les jours REELLEMENT SAISIS, pas sur les jours du
+  // calendrier : avec 3 jours saisis le 26 du mois, l app projetait profitCumule/26
+  // au lieu de profitCumule/3 -> prevision 8x trop basse, en silence.
+  const joursSaisis=new Set(monthEntries.map(e=>e.date)).size;
+  const moyenneJour=parseFloat((profitCumule/Math.max(1,joursSaisis)).toFixed(2));
   const forecast=Math.round(moyenneJour*daysInMonth);
   const daysLeft=daysInMonth-joursEcoules;
 
@@ -1496,7 +1506,8 @@ function renderForecast(){
   const fb=document.getElementById('forecast-bar');
 
   if(fv){fv.textContent=(forecast>=0?'+':'-')+fmtR(forecast);fv.style.color=forecast>=0?'#60a5fa':'#f87171';}
-  if(fs)fs.innerHTML=`Basé sur <strong style="color:#ccc">${fmtR(moyenneJour)}/jour</strong> × <strong style="color:#ccc">${daysInMonth} jours</strong> · jour <strong style="color:#ccc">${joursEcoules}</strong>/${daysInMonth} · ${daysLeft} jours restants`;
+  const _manquants=Math.max(0,joursEcoules-joursSaisis);
+  if(fs)fs.innerHTML=`Basé sur <strong style="color:#ccc">${fmtR(moyenneJour)}/jour</strong> (moyenne sur <strong style="color:#ccc">${joursSaisis}</strong> jour${joursSaisis>1?'s':''} saisi${joursSaisis>1?'s':''}) × <strong style="color:#ccc">${daysInMonth} jours</strong> · ${daysLeft} jours restants`+(_manquants?` · <span style="color:#facc15">⚠ ${_manquants} jour${_manquants>1?'s':''} sans saisie</span>`:'');
 
   const goal=parseFloat(document.getElementById('monthly-goal')?.value)||0;
   const gdet=document.getElementById('forecast-goal-detail');
