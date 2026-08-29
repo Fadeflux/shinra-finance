@@ -906,6 +906,11 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
 </div>
 
 <div class="page" id="page-editlog">
+  <div class="panel" style="margin-bottom:12px;border-color:#2a3a2e">
+    <div class="panel-title">&#128269; R&#233;cup&#233;ration de donn&#233;es</div>
+    <div class="panel-sub">ce que la m&#233;moire de CE navigateur contient encore &#183; ouvre cette page sur chaque appareil o&#249; tu as saisi</div>
+    <div id="recovery-box" style="margin-top:12px"><div class="emsg">Analyse&#8230;</div></div>
+  </div>
   <div class="dash-header">
     <div><div class="dash-title">Historique des modifications</div><div class="dash-sub">journal de toutes les actions</div></div>
     <button onclick="clearEditLog()" style="background:#1a1a1a;border:0.5px solid #333;border-radius:6px;padding:6px 14px;color:#888;font-size:11px;cursor:pointer">🗑 Effacer</button>
@@ -1665,6 +1670,77 @@ function renderDepensesParMois(){
     +'<th style="text-align:right;padding:4px 8px">Total</th><th style="text-align:right;padding:4px 8px" title="Coût sur 12 mois à ce rythme">/ an</th>'
     +'<th style="text-align:right;padding:4px 8px">% CA</th><th style="text-align:right;padding:4px 8px">Δ mois</th>'
     +'</tr></thead><tbody>'+corps+'</tbody></table></div>';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RÉCUPÉRATION DE DONNÉES — inspecte la mémoire de CE navigateur et restaure
+// ce qui manque dans le cloud. Ne supprime jamais rien : fusion uniquement.
+// ─────────────────────────────────────────────────────────────────────────────
+function _recLire(cle){
+  try{
+    const v=localStorage.getItem(cle);
+    if(!v) return null;
+    const d=JSON.parse(v);
+    return Array.isArray(d)?d:null;
+  }catch(e){ return null; }
+}
+function _recSig(o){ return [o&&o.date,Number(o&&o.amount)||0,String((o&&o.note)||'').trim()].join('|'); }
+
+function renderRecovery(){
+  const el=document.getElementById('recovery-box'); if(!el) return;
+  const vir=_recLire('crm_virements')||[];
+  const ent=_recLire('crm_ents')||[];
+  const mod=_recLire('crm_modeles')||[];
+  const vs =_recLire('crm_vas')||[];
+
+  const vusVir=new Set((virements||[]).map(_recSig));
+  const virManquants=vir.filter(o=>!vusVir.has(_recSig(o)));
+  const totalManquant=virManquants.reduce((s,o)=>s+(Number(o.amount)||0),0);
+
+  const ligne=(icone,titre,txt,couleur)=>'<div style="display:flex;gap:9px;align-items:flex-start;padding:6px 0;border-bottom:0.5px solid #191919"><span style="font-size:14px">'+icone+'</span><div><div style="font-size:12px;color:'+(couleur||'#ccc')+'">'+titre+'</div><div style="font-size:10.5px;color:#666;margin-top:2px">'+txt+'</div></div></div>';
+
+  let html='';
+  // Ce que ce navigateur a gardé
+  html+='<div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Trouvé dans la mémoire de CE navigateur</div>';
+  html+=ligne(vir.length?'💰':'—','<b>'+vir.length+'</b> virement(s)', vir.length?('total '+fmtR(vir.reduce((s,o)=>s+(Number(o.amount)||0),0))+' · du '+(vir.map(o=>o.date).sort()[0]||'?')+' au '+(vir.map(o=>o.date).sort().pop()||'?')):'aucune trace dans ce navigateur', vir.length?'#4ade80':'#888');
+  html+=ligne(ent.length?'📄':'—','<b>'+ent.length+'</b> entrée(s)', ent.length?'copie de secours locale':'aucune trace', ent.length?'#ccc':'#888');
+  html+=ligne(mod.length?'👑':'—','<b>'+mod.length+'</b> modèle(s)', mod.length?'copie de secours locale':'aucune trace', mod.length?'#ccc':'#888');
+  html+=ligne(vs.length?'👥':'—','<b>'+vs.length+'</b> VA', vs.length?'copie de secours locale':'aucune trace', vs.length?'#ccc':'#888');
+
+  // Verdict + action
+  if(virManquants.length){
+    html+='<div style="margin-top:12px;background:#0f2417;border:1px solid #1e4a2e;border-left:3px solid #4ade80;border-radius:8px;padding:11px 13px">'
+      +'<div style="font-size:12.5px;color:#86efac;font-weight:600">✅ '+virManquants.length+' virement(s) récupérable(s) — '+fmtR(totalManquant)+'</div>'
+      +'<div style="font-size:11px;color:#6b8f78;margin-top:4px">Ils sont dans ce navigateur mais absents du cloud.</div>'
+      +'<div style="margin-top:9px;max-height:150px;overflow:auto">'
+      + virManquants.map(o=>'<div style="display:flex;justify-content:space-between;font-size:11px;color:#9a9aa0;padding:2px 0"><span>'+dl(o.date)+(o.note?' · '+esc(o.note):'')+'</span><b style="color:#4ade80">'+fmtR(o.amount)+'</b></div>').join('')
+      +'</div>'
+      +'<button onclick="restaurerVirements()" style="margin-top:10px;background:var(--acc);border:none;border-radius:8px;padding:8px 16px;color:var(--acc-ink);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">⤴ Tout restaurer dans le cloud</button>'
+      +'</div>';
+  } else if(vir.length){
+    html+='<div style="margin-top:12px;background:#0e0e0f;border:1px solid #1e1e22;border-radius:8px;padding:11px 13px;font-size:11.5px;color:#8a8a90">✓ Les '+vir.length+' virement(s) de ce navigateur sont déjà tous dans le cloud — rien à récupérer ici.</div>';
+  } else {
+    html+='<div style="margin-top:12px;background:#231d0c;border:1px solid #4a3c12;border-left:3px solid #facc15;border-radius:8px;padding:11px 13px">'
+      +'<div style="font-size:12px;color:#e8d9a0">Aucun virement en mémoire dans <b>ce</b> navigateur.</div>'
+      +'<div style="font-size:11px;color:#8a7f5a;margin-top:5px">Essaie sur l\'appareil / le navigateur où tu les avais saisis (autre PC, téléphone, autre navigateur). Cette page affichera ce qu\'il contient.</div>'
+      +'</div>';
+  }
+  el.innerHTML=html;
+}
+
+async function restaurerVirements(){
+  const vir=_recLire('crm_virements')||[];
+  const vus=new Set((virements||[]).map(_recSig));
+  const manquants=vir.filter(o=>!vus.has(_recSig(o)));
+  if(!manquants.length){ showSaveStatus('Rien à restaurer','#facc15'); return; }
+  const total=manquants.reduce((s,o)=>s+(Number(o.amount)||0),0);
+  if(!await showConfirm('Restaurer '+manquants.length+' virement(s) pour un total de '+fmtR(total)+' ? Rien ne sera supprimé.')) return;
+  virements=virements.concat(manquants).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  _saveVirements();
+  try{ logEdit('Restauration virements', manquants.length+' virement(s) · '+fmtR(total)); }catch(e){}
+  try{ renderVirements(); }catch(e){}
+  try{ renderRecovery(); }catch(e){}
+  showSaveStatus('✓ '+manquants.length+' virement(s) restauré(s) — '+fmtR(total));
 }
 
 function renderForecast(){
@@ -3471,6 +3547,7 @@ function renderExpenseRecap(){
   el.innerHTML=`<div style="display:flex;gap:9px;margin-bottom:11px;flex-wrap:wrap">${kpi('Total dépenses',grand,'#f87171','#2a1e1e')}${kpi('💳 Payé par Moi',gMoi,'#60a5fa','#1e2130')}${kpi('💳 Payé par Associé',gAsso,'#e879f9','#2a1e30')}</div><button type="button" onclick="var d=document.getElementById('exp-recap-detail');var o=d.style.display==='none';d.style.display=o?'block':'none';this.querySelector('.cv').textContent=o?'▴':'▾';this.querySelector('.tx').textContent=o?'Masquer le détail':'Voir le détail par dépense'" style="background:#141416;border:1px solid #26262c;border-radius:8px;padding:7px 12px;color:#bbb;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:7px"><span class="tx">Voir le détail par dépense</span> <b style="color:#ddd">(${rows.length})</b> <span class="cv" style="color:#666;font-size:10px">▾</span></button><div id="exp-recap-detail" style="display:none;margin-top:11px">${table}</div>`;
 }
 function renderEditLog(){
+  try{renderRecovery();}catch(e){console.warn('recovery',e);}
   renderActivity();
   const el=document.getElementById('editlog-content');if(!el)return;
   if(!editLog.length){el.innerHTML='<div class="emsg">Aucune modification enregistrée</div>';return;}
