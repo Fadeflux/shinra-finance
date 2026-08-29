@@ -910,6 +910,7 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
     <div class="panel-title">&#128269; R&#233;cup&#233;ration de donn&#233;es</div>
     <div class="panel-sub">ce que la m&#233;moire de CE navigateur contient encore &#183; ouvre cette page sur chaque appareil o&#249; tu as saisi</div>
     <div id="recovery-box" style="margin-top:12px"><div class="emsg">Analyse&#8230;</div></div>
+    <div id="snapshots-box" style="margin-top:16px;padding-top:14px;border-top:1px solid #1e1e22"></div>
   </div>
   <div class="dash-header">
     <div><div class="dash-title">Historique des modifications</div><div class="dash-sub">journal de toutes les actions</div></div>
@@ -1741,6 +1742,132 @@ async function restaurerVirements(){
   try{ renderVirements(); }catch(e){}
   try{ renderRecovery(); }catch(e){}
   showSaveStatus('✓ '+manquants.length+' virement(s) restauré(s) — '+fmtR(total));
+}
+
+let _settingsCache={};   // dernier contenu de la table settings (pour lire les sauvegardes)
+// ─────────────────────────────────────────────────────────────────────────────
+// POINTS DE RESTAURATION — une sauvegarde complète par jour, 7 conservées.
+// Écrites dans `settings` (clés snapshot_1..7) + une copie dans le navigateur.
+// Objectif : ne plus JAMAIS pouvoir perdre des données sans filet.
+// ─────────────────────────────────────────────────────────────────────────────
+const _SNAP_N = 7;
+const _SNAP_MS = 20 * 3600 * 1000;   // au plus une sauvegarde toutes les 20 h
+
+function _snapContenu(){
+  return {
+    ts: new Date().toISOString(),
+    ents: ents || [],
+    virements: virements || [],
+    modeles: modeles || [],
+    vas: (vas || []).map(v => ({ ...v, history: v.history || [] })),
+  };
+}
+function _snapLire(i){
+  try{
+    const v = _settingsCache && _settingsCache['snapshot_' + i];
+    return v ? JSON.parse(v) : null;
+  }catch(e){ return null; }
+}
+function _snapTous(){
+  const out = [];
+  for (let i = 1; i <= _SNAP_N; i++){
+    const s = _snapLire(i);
+    if (s && s.ts) out.push({ i, ...s });
+  }
+  return out.sort((a,b) => String(b.ts).localeCompare(String(a.ts)));
+}
+
+// Écrit un point de restauration si le dernier a plus de 20 h.
+// Emplacement tournant : on écrase toujours le PLUS ANCIEN.
+async function snapshotSiNecessaire(){
+  try{
+    if (!_apiConnected) return;
+    if (!(ents && ents.length) && !(virements && virements.length)) return; // rien à sauvegarder
+    const tous = _snapTous();
+    if (tous.length){
+      const dernier = new Date(tous[0].ts).getTime();
+      if (isFinite(dernier) && (Date.now() - dernier) < _SNAP_MS) return;   // trop récent
+    }
+    let cible = null;
+    for (let i = 1; i <= _SNAP_N && !cible; i++) if (!_snapLire(i)) cible = i;   // emplacement libre
+    if (!cible) cible = tous[tous.length - 1].i;                                 // sinon le plus ancien
+    const contenu = _snapContenu();
+    const txt = JSON.stringify(contenu);
+    _settingsCache['snapshot_' + cible] = txt;
+    _pushSetting('snapshot_' + cible, contenu);
+    try{ window.storage.set('crm_snapshot_local', txt); }catch(e){}
+    console.info('[Sauvegarde] point de restauration ' + cible + ' écrit (' + (ents||[]).length + ' entrées)');
+  }catch(e){ console.warn('snapshot', e); }
+}
+
+// Restaure un point : FUSION pour les listes (on n'efface jamais), remplacement
+// des entrées uniquement si le point en contient plus que l'état actuel.
+async function restaurerSnapshot(i){
+  const s = _snapLire(i);
+  if (!s){ showSaveStatus('Point de restauration introuvable', '#f87171'); return; }
+  const dt = new Date(s.ts);
+  const resume = (s.ents||[]).length + ' entrée(s) · ' + (s.virements||[]).length + ' virement(s) · ' + (s.modeles||[]).length + ' modèle(s)';
+  if (!await showConfirm('Restaurer la sauvegarde du ' + dt.toLocaleString('fr-FR') + ' ?\n' + resume + '\nRien ne sera supprimé : les données absentes seront rajoutées.')) return;
+
+  const sig = o => [o&&o.date, Number(o&&o.amount)||0, String((o&&o.note)||'').trim()].join('|');
+  const vus = new Set((virements||[]).map(sig));
+  const virAjoutes = (s.virements||[]).filter(o => !vus.has(sig(o)));
+  if (virAjoutes.length){
+    virements = virements.concat(virAjoutes).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+    _saveVirements();
+  }
+  const nomsMod = new Set((modeles||[]).map(m => String(m.name||'').toLowerCase()));
+  const modAjoutes = (s.modeles||[]).filter(m => !nomsMod.has(String(m.name||'').toLowerCase()));
+  if (modAjoutes.length){ modeles = modeles.concat(modAjoutes); _saveModeles(); }
+
+  // Entrées : on ne rajoute que celles dont la date n'existe pas déjà.
+  const datesVues = new Set((ents||[]).map(e => e.date));
+  const entAjoutees = (s.ents||[]).filter(e => !datesVues.has(e.date));
+  let ok = 0, ko = 0;
+  for (const e of entAjoutees){
+    try{ const c = { ...e }; delete c.id; await apiFetch('/api/entries', { method:'POST', body: JSON.stringify(c) }); ok++; }
+    catch(err){ ko++; }
+  }
+  if (ok){ try{ ents = await apiFetch('/api/entries'); }catch(e){} }
+  try{ rh(); rc(); uk(); renderVirements(); renderModeles(); renderRecovery(); }catch(e){}
+  try{ logEdit('Restauration sauvegarde', dt.toLocaleDateString('fr-FR') + ' · ' + virAjoutes.length + ' virement(s), ' + ok + ' entrée(s)'); }catch(e){}
+  showSaveStatus('✓ Restauré : ' + virAjoutes.length + ' virement(s), ' + ok + ' entrée(s), ' + modAjoutes.length + ' modèle(s)'
+    + (ko ? ' · ' + ko + ' échec(s)' : ''), ko ? '#facc15' : '#4ade80');
+}
+
+async function snapshotManuel(){
+  const tous = _snapTous();
+  let cible = null;
+  for (let i = 1; i <= _SNAP_N && !cible; i++) if (!_snapLire(i)) cible = i;
+  if (!cible) cible = tous.length ? tous[tous.length-1].i : 1;
+  const contenu = _snapContenu();
+  _settingsCache['snapshot_' + cible] = JSON.stringify(contenu);
+  _pushSetting('snapshot_' + cible, contenu);
+  try{ window.storage.set('crm_snapshot_local', JSON.stringify(contenu)); }catch(e){}
+  try{ renderRecovery(); }catch(e){}
+  showSaveStatus('✓ Point de restauration créé');
+}
+
+function renderSnapshots(){
+  const el = document.getElementById('snapshots-box'); if (!el) return;
+  const tous = _snapTous();
+  let html = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
+    + '<div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.05em">Sauvegardes automatiques (7 derni&#232;res)</div>'
+    + '<button onclick="snapshotManuel()" style="background:#161619;border:1px solid #26262c;border-radius:7px;padding:5px 11px;color:#bbb;font-size:11px;cursor:pointer;font-family:inherit">&#128190; Sauvegarder maintenant</button></div>';
+  if (!tous.length){
+    html += '<div style="font-size:11.5px;color:#8a8a90;background:#0e0e0f;border:1px solid #1e1e22;border-radius:8px;padding:11px 13px">Aucune sauvegarde pour l\'instant. La premi&#232;re sera cr&#233;&#233;e automatiquement, puis une par jour.</div>';
+  } else {
+    html += tous.map(s => {
+      const d = new Date(s.ts);
+      const totalVir = (s.virements||[]).reduce((x,o)=>x+(Number(o.amount)||0),0);
+      return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 0;border-bottom:0.5px solid #191919">'
+        + '<div><div style="font-size:12px;color:#ccc">' + d.toLocaleString('fr-FR') + '</div>'
+        + '<div style="font-size:10.5px;color:#666;margin-top:2px">' + (s.ents||[]).length + ' entr&#233;e(s) &#183; '
+        + (s.virements||[]).length + ' virement(s)' + (totalVir? ' (' + fmtR(totalVir) + ')':'') + ' &#183; ' + (s.modeles||[]).length + ' mod&#232;le(s)</div></div>'
+        + '<button onclick="restaurerSnapshot(' + s.i + ')" style="background:#161619;border:1px solid #26262c;border-radius:7px;padding:5px 11px;color:var(--acc);font-size:11px;cursor:pointer;font-family:inherit">&#10548; Restaurer</button></div>';
+    }).join('');
+  }
+  el.innerHTML = html;
 }
 
 function renderForecast(){
@@ -2786,6 +2913,7 @@ async function loadData() {
       ]);
       ents = apiEnts;
       vas = apiVas;
+      _settingsCache = apiSettings || {};
       virements = apiSettings?.virements ? JSON.parse(apiSettings.virements) : [];
       // Récupération : cloud vide mais virements en cache navigateur (ancien bug) -> on restaure et on pousse au cloud
       // RECUPERATION des virements : on FUSIONNE toujours avec la copie du navigateur.
@@ -2840,6 +2968,7 @@ async function loadData() {
   const _safe=(fn)=>{try{fn();}catch(e){console.warn('render',e);}};
   if (ents.length || vas.length) { _safe(rh); _safe(rc); _safe(uk); _safe(rv); }
   _safe(renderVirements); _safe(renderModeles);
+  try{ snapshotSiNecessaire(); }catch(e){}
 }
 
 // Filet de secours local. ⚠️ `window.storage` n'existait NULLE PART : saveData()
@@ -3548,6 +3677,7 @@ function renderExpenseRecap(){
 }
 function renderEditLog(){
   try{renderRecovery();}catch(e){console.warn('recovery',e);}
+  try{renderSnapshots();}catch(e){console.warn('snapshots',e);}
   renderActivity();
   const el=document.getElementById('editlog-content');if(!el)return;
   if(!editLog.length){el.innerHTML='<div class="emsg">Aucune modification enregistrée</div>';return;}
