@@ -2712,7 +2712,25 @@ async function loadData() {
       vas = apiVas;
       virements = apiSettings?.virements ? JSON.parse(apiSettings.virements) : [];
       // Récupération : cloud vide mais virements en cache navigateur (ancien bug) -> on restaure et on pousse au cloud
-      if(!virements.length){ try{ const _lv=await window.storage.get('crm_virements'); const _pv=_lv?JSON.parse(_lv.value):[]; if(_pv&&_pv.length){ virements=_pv; _saveVirements(); } }catch(_e){} }
+      // RECUPERATION des virements : on FUSIONNE toujours avec la copie du navigateur.
+      // (Avant, on ne regardait le cache que si le cloud etait VIDE : une liste cloud
+      //  ecrasee mais non vide bloquait donc toute recuperation.)
+      // Fusion par signature date+montant+note : on n ajoute que ce qui manque,
+      // on ne supprime jamais rien.
+      try{
+        const _lv=await window.storage.get('crm_virements');
+        const _pv=_lv?(JSON.parse(_lv.value)||[]):[];
+        if(_pv.length){
+          const _sig=o=>[o.date,Number(o.amount)||0,String(o.note||'').trim()].join('|');
+          const _vus=new Set(virements.map(_sig));
+          const _manquants=_pv.filter(o=>!_vus.has(_sig(o)));
+          if(_manquants.length){
+            virements=virements.concat(_manquants).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+            _saveVirements();
+            setTimeout(()=>showSaveStatus('\u2713 '+_manquants.length+' virement(s) r\u00e9cup\u00e9r\u00e9(s) depuis ce navigateur','#4ade80'),1200);
+          }
+        }
+      }catch(_e){}
       // Modèles et journal : relire depuis le cloud (sinon ils repartaient vides à chaque chargement)
       try{ modeles = apiSettings?.modeles ? (JSON.parse(apiSettings.modeles)||[]) : []; }catch(_e){ modeles=[]; }
       if(!modeles.length){ try{ const _lm=await window.storage.get('crm_modeles'); const _pm=_lm?JSON.parse(_lm.value):[]; if(_pm&&_pm.length){ modeles=_pm; _saveModeles(); } }catch(_e){} }
