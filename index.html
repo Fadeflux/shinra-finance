@@ -3611,7 +3611,7 @@ window.duplicateEntry = function(idx){
 };
 
 window.addVA = function() {
-  const n=document.getElementById('van').value.trim(); if(!n){ flashMsg('va-msg','\u26a0 Donne un nom au VA','#f87171'); const _v=document.getElementById('van'); if(_v)_v.focus(); return; }
+  const n=document.getElementById('van').value.trim(); if(!n){ showSaveStatus('\u26a0 Donne un nom au VA','#f87171'); const _v=document.getElementById('van'); if(_v)_v.focus(); return; }
   const cat=document.getElementById('vac').value;
   {
     const souci = verifierMontants(['vasubs','vaca','vabon','vamal']);
