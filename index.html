@@ -1288,21 +1288,87 @@ function renderRapprochement(){
 // virement que l'autre venait d'ajouter. On ne réécrit donc une liste que si elle
 // a réellement été modifiée dans cette session.
 const _dirty={virements:false,modeles:false,editlog:false};
+function ecritureInterdite(quoi){
+  if(!document.body.classList.contains('readonly')) return false;
+  try{
+    // Le « ⚠ » n'est pas decoratif : showSaveStatus s'en sert pour reconnaitre un
+    // ECHEC, le tenir 20 s a l'ecran, et empecher un « Sauvegarde » de le recouvrir.
+    if(typeof showSaveStatus==='function')
+      showSaveStatus("⚠ Lecture seule — RIEN n'a été enregistré"+(quoi?" ("+quoi+")":"")+".", '#ef4444');
+    else alert("Mode lecture seule : rien n'a été enregistré.");
+  }catch(e){}
+  return true;
+}
 function _pushSetting(key,val){
-  try{ apiFetch('/api/settings',{method:'POST',body:JSON.stringify({key,value:JSON.stringify(val)})}).catch(()=>{}); }catch(e){}
+  // Refus AVANT l'appel réseau, et on rend `false` : les appelants qui vérifient la
+  // valeur de retour annoncent alors un échec honnête au lieu d'un « Sauvegardé ».
+  if(ecritureInterdite(key)) return Promise.resolve(false);
+  try{
+    return apiFetch('/api/settings',{method:'POST',body:JSON.stringify({key,value:JSON.stringify(val)})})
+      .then(function(){ return true; })
+      .catch(function(e){
+        console.warn('ecriture cloud echouee', key, e);
+        return false;
+      });
+  }catch(e){ return Promise.resolve(false); }
 }
 // Effacer le journal detruit toute la piste d audit : une confirmation s impose,
 // comme pour la suppression d une entree ou d un VA.
 async function clearEditLog(){
   if(!await showConfirm('Effacer tout l historique des modifications ? Cette action est irreversible.')) return;
   editLog=[]; _saveEditLog(); saveData(); renderEditLog();
-}function _saveVirements(){ _dirty.virements=true; _pushSetting('virements',virements); }
+}// ⚠️ DEUX APPAREILS SE DÉTRUISAIENT LES PAIEMENTS. La liste partait ENTIÈRE et
+// écrasait celle du serveur : PC et téléphone ouverts en même temps, le PC ajoute
+// un virement, le téléphone (chargé avant) en supprime un autre et repousse SA
+// liste — le virement du PC disparaît, sans un mot. On RELIT le serveur avant
+// d'écrire, on récupère ce qui manque, et si la relecture échoue on n'écrit PAS.
+// `_VIREMENTS_SUPPRIMES` retient ce qu'on a supprimé ici, pour que la fusion ne
+// le ressuscite pas.
+function _cleVirement(v){
+  return (v && v.id) ? String(v.id)
+       : [v&&v.date, v&&v.amount, (v&&v.note)||''].join('|');
+}
+function _nouvelIdVirement(){
+  return 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+let _VIREMENTS_SUPPRIMES = new Set();
+async function _saveVirements(){
+  _dirty.virements = true;
+  if (typeof ecritureInterdite === 'function' && ecritureInterdite('paiements')) return false;
+  try{
+    const dist = await apiFetch('/api/settings');           // ce que le serveur a MAINTENANT
+    let sv = [];
+    try{ sv = JSON.parse((dist && dist.virements) || '[]') || []; }catch(e){ sv = []; }
+    if (Array.isArray(sv) && sv.length){
+      const vus = new Set((virements||[]).map(_cleVirement));
+      const repeches = sv.filter(v => {
+        const c = _cleVirement(v);
+        return !vus.has(c) && !_VIREMENTS_SUPPRIMES.has(c);   // ni déjà là, ni supprimé par nous
+      });
+      if (repeches.length){
+        virements = (virements||[]).concat(repeches)
+          .sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
+        console.info('[Paiements] ' + repeches.length + ' paiement(s) d un autre appareil recuperes avant ecriture');
+        try{ if(typeof renderModelShare==='function') renderModelShare(); }catch(e){}
+      }
+    }
+  }catch(e){
+    // Relecture impossible (hors ligne, serveur muet) : on N'ÉCRASE PAS à l'aveugle.
+    console.warn('[Paiements] relecture impossible, ecriture annulee pour ne rien detruire', e);
+    return false;
+  }
+  return _pushSetting('virements', virements);
+}
 // Modèles et journal : eux aussi n'étaient sauvés nulle part (perdus à chaque rechargement).
 function _saveModeles(){ _dirty.modeles=true; _pushSetting('modeles',modeles); }
 function _saveEditLog(){ _dirty.editlog=true; _pushSetting('editlog',editLog.slice(0,200)); }
 function addVirement(){
   const date=document.getElementById('vir-date')?.value||ts();
-  const amount=parseFloat(document.getElementById('vir-amount')?.value)||0;
+  // ⚠️ UN VIREMENT EST DE L'ARGENT QUI PART : « 1,000 » y valait 1 $, et le
+  // « reste à envoyer » réclamait alors 999 $ de plus que la réalité.
+  const _lu=lireMontant(document.getElementById('vir-amount')?.value);
+  if(!_lu.ok){ showSaveStatus('⚠ '+_lu.erreur.replace(/\*\*/g,''),'#f87171'); return; }
+  const amount=_lu.valeur;
   const note=document.getElementById('vir-note')?.value.trim()||'';
   if(!amount)return;
   virements.unshift({date,amount,note});
@@ -1315,6 +1381,7 @@ async function deleteVirement(i){
   const v=virements[i]; if(!v)return;
   if(!await showConfirm('Supprimer ce virement de '+fmtR(v.amount)+' ? Cette action est irreversible.'))return;
   logEdit('Suppression virement', dl(v.date)+' - '+fmtR(v.amount));
+  _VIREMENTS_SUPPRIMES.add(_cleVirement(v));   // pour que la fusion ne le ressuscite pas
   virements.splice(i,1);
   renderVirements();saveData();_saveVirements();
 }
@@ -1484,7 +1551,34 @@ function gf(){
   const end=new Date((acdEnd||acd)+'T00:00:00');end.setHours(23,59,59,999);
   return ents.filter(e=>{const d=new Date(e.date+'T00:00:00');return d>=start&&d<=end;});
 }
-function gv(id){return parseFloat(document.getElementById(id).value)||0;}
+function lireMontant(brut){
+  const t = String(brut == null ? "" : brut).trim();
+  if(!t) return { ok:true, valeur:0 };
+  const dec = t.split(".")[1] || "";
+  if(dec.length >= 3){
+    const sans = t.replace(".", "");
+    return { ok:false, valeur:null,
+      erreur:"« "+t.replace(".", ",")+" » : de l'argent n'a jamais 3 décimales. Tu voulais "
+        +"probablement **"+Number(sans).toLocaleString("fr-FR")+" $** — réécris-le sans "
+        +"séparateur de milliers ("+sans+"). Rien n'a été enregistré." };
+  }
+  const v = parseFloat(t);
+  if(!isFinite(v)) return { ok:false, valeur:null, erreur:"Montant illisible : « "+t+" »." };
+  if(v < 0) return { ok:false, valeur:null,
+    erreur:"Montant négatif ("+v+"). La liste l'afficherait en positif tout en le retirant du total. "
+      +"Rien n'a été enregistré." };
+  return { ok:true, valeur:v };
+}
+function gv(id){const e=document.getElementById(id); const r=lireMontant(e&&e.value); return r.ok?r.valeur:0;}
+function gvStrict(id){const e=document.getElementById(id); return lireMontant(e&&e.value);}
+function verifierMontants(ids){
+  for(const id of ids){
+    const e=document.getElementById(id); if(!e) continue;
+    const r=lireMontant(e.value);
+    if(!r.ok) return r.erreur;
+  }
+  return "";
+}
 function addAF(n='',v='',pb='moi'){const id=++afc;afs.push(id);const d=document.createElement('div');d.className='arow';d.id='ar-'+id;const cls=pb==='associe'?'pb-btn assoc':'pb-btn';const txt=pb==='associe'?'Asso.':'Moi';d.innerHTML=`<input class="ifield" style="flex:1" type="text" id="an-${id}" placeholder="Nom (ex: pub Meta)" value="${esc(n)}" list="dep-names" autocomplete="off" oninput="uk()"><input class="ifield" style="width:90px;flex-shrink:0" type="number" id="av-${id}" placeholder="$" value="${v}" oninput="uk()"><button class="${cls}" data-pb="${pb}" onclick="tpb(this);uk()" type="button">${txt}</button><button class="arm" onclick="ra(${id})">×</button>`;document.getElementById('ainps').appendChild(d);}
 function ra(id){const r=document.getElementById('ar-'+id);if(r)r.remove();afs=afs.filter(f=>f!==id);uk();}
 function gat(){return afs.reduce((s,id)=>s+(parseFloat(document.getElementById('av-'+id)?.value)||0),0);}
@@ -1803,6 +1897,7 @@ async function snapshotSiNecessaire(){
 // Restaure un point : FUSION pour les listes (on n'efface jamais), remplacement
 // des entrées uniquement si le point en contient plus que l'état actuel.
 async function restaurerSnapshot(i){
+  if (ecritureInterdite('restauration de sauvegarde')) return;
   const s = _snapLire(i);
   if (!s){ showSaveStatus('Point de restauration introuvable', '#f87171'); return; }
   const dt = new Date(s.ts);
@@ -2241,10 +2336,10 @@ function rc(){
   });
 }
 function pp(){
-  const s=parseFloat(document.getElementById('vasubs').value)||0;
+  const s=gv('vasubs');
   const r=parseFloat(document.getElementById('varate').value)||0;
-  const b=parseFloat(document.getElementById('vabon').value)||0;
-  const m=parseFloat(document.getElementById('vamal').value)||0;
+  const b=gv('vabon');
+  const m=gv('vamal');
   const p=Math.max(0,s*r+b-m);
   document.getElementById('pppv').textContent=fmt(p);
   document.getElementById('pppd').textContent=`$${r.toFixed(2)} × ${s} subs + $${b} − $${m}`;
@@ -3014,6 +3109,10 @@ async function saveData() {
 }
 
 async function saveEntry(entry) {
+  // ⚠️ LA GARDE ÉTAIT ABSENTE : `body.readonly` ne fait que CACHER des boutons.
+  // La touche Entrée, un `onclick` resté visible ou la console du navigateur
+  // passaient tout droit. On la met LÀ OÙ L'ÉCRITURE PART.
+  if (ecritureInterdite('entrée')) return;
   // Un échec doit se VOIR : sinon l'utilisateur lit « ✓ Entrée enregistrée »
   // alors que rien n'est parti au cloud, et la saisie disparaît au rechargement.
   if (!_apiConnected) { showSaveStatus('⚠ NON SAUVEGARDÉ — hors ligne, ne recharge pas la page', '#f87171'); return; }
@@ -3031,12 +3130,14 @@ async function saveEntry(entry) {
 }
 
 async function deleteEntryAPI(id) {
+  if (ecritureInterdite('suppression')) return;
   if (!_apiConnected || !id) return;
   try { await apiFetch(`/api/entries/${id}`, { method: 'DELETE' }); }
   catch (e) { console.warn('Delete entry failed', e); }
 }
 
 async function saveVA(va, historyEntry) {
+  if (ecritureInterdite('VA')) return;
   if (!_apiConnected) return;
   try {
     await apiFetch('/api/va/upsert', {
@@ -3047,6 +3148,7 @@ async function saveVA(va, historyEntry) {
 }
 
 async function deleteVAAPI(name) {
+  if (ecritureInterdite('suppression de VA')) return;
   if (!_apiConnected) return;
   try { await apiFetch(`/api/va/${encodeURIComponent(name)}`, { method: 'DELETE' }); }
   catch (e) { console.warn('Delete VA failed', e); }
@@ -3209,6 +3311,7 @@ function exportVACSV() {
 let _goalTimer = null, _discordTimer = null, _goalWasReached = false;
 function onGoalChange() { uk(); clearTimeout(_goalTimer); _goalTimer = setTimeout(saveMonthlyGoal, 1000); }
 async function saveMonthlyGoal() {
+  if (ecritureInterdite('objectif du mois')) return;
   if (!_apiConnected) return;
   const val = parseFloat(document.getElementById('monthly-goal')?.value) || 0;
   try { await apiFetch('/api/settings', { method: 'POST', body: JSON.stringify({ key: 'monthly_goal', value: val }) }); }
@@ -3221,6 +3324,7 @@ function saveDiscordWebhook() {
   clearTimeout(_webhookTimer);
   _webhookTimer = setTimeout(async () => {
     if (!_apiConnected) return;
+    if (ecritureInterdite('webhook Discord')) return;
     const val = document.getElementById('discord-webhook')?.value.trim() || '';
     try { await apiFetch('/api/settings', { method: 'POST', body: JSON.stringify({ key: 'discord_webhook', value: val }) }); }
     catch (e) { console.warn('Erreur save webhook', e); }
@@ -3312,6 +3416,7 @@ function exportCSV() {
 }
 
 function importData(e) {
+  if (ecritureInterdite('import : il ÉCRASE tout')) return;
   const file = e.target.files[0]; if (!file) return;
   const r = new FileReader();
   r.onload = async ev => {
@@ -3381,6 +3486,17 @@ function countUpKPI(id,from){
   requestAnimationFrame(step);
 }
 function se() {
+  // ⚠️ « 1,000 » TAPÉ DANS UNE CASE D'ARGENT VALAIT 1 DOLLAR.
+  // Dans un champ `type="number"` en français, taper « 1,000 » donne
+  // `.value === "1.000"` — le navigateur normalise avant que le code ne voie
+  // quoi que ce soit, impossible de deviner. Ce qu'on sait : de l'argent n'a
+  // jamais 3 décimales. On REFUSE au lieu de deviner (voir `lireMontant`).
+  {
+    const ids = ['ib','itg','iv','im','ici','ich'].concat(
+      (typeof afs !== 'undefined' ? afs : []).map(function(i){ return 'av-'+i; }));
+    const souci = verifierMontants(ids);
+    if(souci){ flashMsg('se-msg','⚠ '+souci.replace(/\*\*/g,''),'#f87171'); return; }
+  }
   const br=gv('ib'); if(!br){flashMsg('se-msg','⚠ Entre au moins un CA Brut','#f87171');const _ib=document.getElementById('ib');if(_ib)_ib.focus();return;}
   const wasEdit=!!_editingId;
   const _oldK={vpr:_kpiNum('vpr'),vb:_kpiNum('vb'),vn:_kpiNum('vn')};
@@ -3424,6 +3540,7 @@ function se() {
 }
 
 async function updateEntryAPI(id, entry) {
+  if (ecritureInterdite('modification')) return;
   // Échec visible : l'app affichait « ✓ Entrée modifiée » même quand la modification
   // n'était jamais partie au cloud (session expirée, coupure réseau).
   if(!_apiConnected){ showSaveStatus('⚠ MODIFICATION NON SAUVEGARDÉE — hors ligne, ne recharge pas la page','#f87171'); return; }
@@ -3496,14 +3613,18 @@ window.duplicateEntry = function(idx){
 window.addVA = function() {
   const n=document.getElementById('van').value.trim(); if(!n){ flashMsg('va-msg','\u26a0 Donne un nom au VA','#f87171'); const _v=document.getElementById('van'); if(_v)_v.focus(); return; }
   const cat=document.getElementById('vac').value;
-  const subs=parseFloat(document.getElementById('vasubs').value)||0;
+  {
+    const souci = verifierMontants(['vasubs','vaca','vabon','vamal']);
+    if(souci){ showSaveStatus('⚠ '+souci.replace(/\*\*/g,''),'#f87171'); return; }
+  }
+  const subs=gv('vasubs');
   const ca=parseFloat(document.getElementById('vaca').value)||0;
   // 0 est une valeur VALIDE : ||0.5 la transformait silencieusement en 0,50 $, ce qui
   // creait une depense fantome (300 subs x 0,50 = 150 $) alors que l apercu affichait 0.
   const _rateRaw=parseFloat(document.getElementById('varate').value);
   const rate=isNaN(_rateRaw)?0.5:_rateRaw;
-  const bon=parseFloat(document.getElementById('vabon').value)||0;
-  const mal=parseFloat(document.getElementById('vamal').value)||0;
+  const bon=gv('vabon');
+  const mal=gv('vamal');
   const pay=Math.max(0,subs*rate+bon-mal);
   const net=parseFloat((ca*0.78).toFixed(2));
   const ltv=subs>0?ca/subs:0;
@@ -3589,20 +3710,29 @@ function closeQuickAdd(){
   const p=document.getElementById('qa-profit');if(p)p.textContent='$0';
 }
 function qaCalc(){
-  const br=parseFloat(document.getElementById('qa-brut')?.value)||0;
-  const va=parseFloat(document.getElementById('qa-va')?.value)||0;
-  const mo=parseFloat(document.getElementById('qa-mo')?.value)||0;
-  const al=parseFloat(document.getElementById('qa-al')?.value)||0;
+  const br=gv('qa-brut');
+  const va=gv('qa-va');
+  const mo=gv('qa-mo');
+  const al=gv('qa-al');
   const profit=Math.round(br*0.78-va-mo-al);
   const p=document.getElementById('qa-profit');
   if(p){p.textContent=(profit>=0?'+':'')+fmt(profit);p.style.color=profit>=0?'#4ade80':'#f87171';}
 }
 function quickAddSave(){
-  const br=parseFloat(document.getElementById('qa-brut')?.value)||0;
+  // ⚠️ « 1,000 » TAPÉ DANS UNE CASE D'ARGENT VALAIT 1 DOLLAR.
+  // Dans un champ `type="number"` en français, taper « 1,000 » donne
+  // `.value === "1.000"` — le navigateur normalise avant que le code ne voie
+  // quoi que ce soit, impossible de deviner. Ce qu'on sait : de l'argent n'a
+  // jamais 3 décimales. On REFUSE au lieu de deviner (voir `lireMontant`).
+  {
+    const souci = verifierMontants(['qa-brut','qa-va','qa-mo','qa-al']);
+    if(souci){ flashMsg('qa-msg','⚠ '+souci.replace(/\*\*/g,''),'#f87171'); return; }
+  }
+  const br=gv('qa-brut');
   if(!br){flashMsg('qa-msg','⚠ Entre au moins un CA Brut','#f87171');const _qb=document.getElementById('qa-brut');if(_qb)_qb.focus();return;}
-  const va=parseFloat(document.getElementById('qa-va')?.value)||0;
-  const mo=parseFloat(document.getElementById('qa-mo')?.value)||0;
-  const al=parseFloat(document.getElementById('qa-al')?.value)||0;
+  const va=gv('qa-va');
+  const mo=gv('qa-mo');
+  const al=gv('qa-al');
   const date=document.getElementById('qa-date')?.value||ts();
   const profit=Math.round(br*0.78-va-mo-al);
   // La dépense « Autres » doit exister dans alI, sinon le rapprochement et le récap
