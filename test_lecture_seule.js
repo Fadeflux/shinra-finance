@@ -53,8 +53,8 @@ const ECRIVAINS = [
   ['saveEntry', () => global.saveEntry({ id: 'e1', amount: 10 })],
   ['updateEntryAPI', () => global.updateEntryAPI('e1', { id: 'e1', amount: 20 })],
   ['deleteEntryAPI', () => global.deleteEntryAPI('e1')],
-  ['saveVA', () => global.saveVA({ name: 'Welzy' }, null)],
-  ['deleteVAAPI', () => global.deleteVAAPI('Welzy')],
+  ['saveVA', () => global.saveVA({ name: 'Nael' }, null)],
+  ['deleteVAAPI', () => global.deleteVAAPI('Nael')],
   ['saveMonthlyGoal', () => global.saveMonthlyGoal()],
   // ⚠️ Son ecriture part d'un `setTimeout(..., 1500)` : sans le bouchon de timer
   // ci-dessous, le temoin ne voyait rien partir et le controle se declarait
