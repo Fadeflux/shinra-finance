@@ -3149,10 +3149,14 @@ async function saveEntry(entry) {
   // ⚠️ LA GARDE ÉTAIT ABSENTE : `body.readonly` ne fait que CACHER des boutons.
   // La touche Entrée, un `onclick` resté visible ou la console du navigateur
   // passaient tout droit. On la met LÀ OÙ L'ÉCRITURE PART.
-  if (ecritureInterdite('entrée')) return;
+  // ⚠️ CETTE FONCTION SAVAIT si l'enregistrement avait raté -- elle affiche un
+  // message d'échec -- mais elle ne le DISAIT a personne : elle rendait
+  // `undefined` dans tous les cas. Ses appelants ne pouvaient donc pas savoir
+  // s'ils avaient le droit d'annoncer « c'est fait ». Elle rend true/false.
+  if (ecritureInterdite('entrée')) return false;
   // Un échec doit se VOIR : sinon l'utilisateur lit « ✓ Entrée enregistrée »
   // alors que rien n'est parti au cloud, et la saisie disparaît au rechargement.
-  if (!_apiConnected) { showSaveStatus('⚠ NON SAUVEGARDÉ — hors ligne, ne recharge pas la page', '#f87171'); return; }
+  if (!_apiConnected) { showSaveStatus('⚠ NON SAUVEGARDÉ — hors ligne, ne recharge pas la page', '#f87171'); return false; }
   try {
     const saved = await apiFetch('/api/entries', {
       method: 'POST', body: JSON.stringify(entry),
@@ -3160,9 +3164,11 @@ async function saveEntry(entry) {
     // Remplacer l'entrée locale par celle avec l'id DB
     const idx = ents.findIndex(e => e === entry);
     if (idx >= 0) ents[idx] = saved;
+    return true;
   } catch (e) {
     console.warn('Save entry failed', e);
     showSaveStatus('⚠ NON SAUVEGARDÉ — erreur réseau, ne recharge pas la page', '#f87171');
+    return false;
   }
 }
 
@@ -3755,7 +3761,7 @@ function qaCalc(){
   const p=document.getElementById('qa-profit');
   if(p){p.textContent=(profit>=0?'+':'')+fmt(profit);p.style.color=profit>=0?'#4ade80':'#f87171';}
 }
-function quickAddSave(){
+async function quickAddSave(){
   // ⚠️ « 1,000 » TAPÉ DANS UNE CASE D'ARGENT VALAIT 1 DOLLAR.
   // Dans un champ `type="number"` en français, taper « 1,000 » donne
   // `.value === "1.000"` — le navigateur normalise avant que le code ne voie
@@ -3778,12 +3784,22 @@ function quickAddSave(){
   const alIQ = al>0 ? [{name:'Ajout rapide', val:al, paidBy:'moi'}] : [];
   const entry={date,brut:br,va,mo,ci:0,ch:0,alI:alIQ,alT:al,profit,paidBy:{va:'moi',mo:'moi'},notes:'[ajout rapide]'};
   ents.unshift(entry);
-  saveEntry(entry);
+  // ⚠️ « ✓ ENTRÉE AJOUTÉE » S'AFFICHAIT AVANT DE SAVOIR.
+  // `saveEntry` et `saveData` partaient SANS être attendus, et le bandeau vert
+  // s'affichait tout de suite. Les deux écritures répondaient plus tard, et leur
+  // échec remplaçait le vert par un rouge : on lisait « c'est fait », puis
+  // « ce n'est pas fait ». Et si on avait fermé l'écran entre les deux, on
+  // repartait en croyant son chiffre enregistré.
+  // C'est la saisie du CA : l'endroit du site où se tromper coûte le plus cher.
+  const okEntree = await saveEntry(entry);
   logEdit('Ajout rapide', `${dl(date)} · CA ${fmt(br)} · profit ${fmt(profit)}`);
   rh();rc();uk();renderVirements();
-  saveData();
+  const okReste = await saveData();
   closeQuickAdd();
-  showSaveStatus('✓ Entrée ajoutée');
+  // On n'annonce que si les DEUX ont abouti. Sinon, le message d'échec de
+  // `saveEntry`/`saveData` est déjà à l'écran et doit y RESTER : le recouvrir
+  // d'un vert serait exactement le défaut qu'on corrige.
+  if (okEntree !== false && okReste !== false) showSaveStatus('✓ Entrée ajoutée');
 }
 
 // ── Global search ──
