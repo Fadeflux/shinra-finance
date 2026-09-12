@@ -18,12 +18,16 @@
 // les 20 h » interdisait alors toute nouvelle tentative. Le jour où il aurait
 // fallu restaurer, il n'y avait RIEN — et rien ne l'avait jamais dit.
 //
-//     node test_snapshot_honnete.js
+//     node test_snapshot_honnete.js [autre/index.html]
+//
+// ⚠️ (13/09) Ce banc ignorait le chemin passé en argument : il relisait toujours
+// la page du dépôt, et ne pouvait donc jamais prouver qu'il échoue sur une
+// version d'avant. Comme les autres bancs, il accepte maintenant une autre page.
 
 const fs = require('fs');
 const path = require('path');
 
-const SRC = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+const SRC = fs.readFileSync(process.argv[2] || path.join(__dirname, 'index.html'), 'utf8');
 
 let ko = 0;
 function V(titre, cond, detail = '') {
@@ -39,15 +43,19 @@ V('la fonction est bien extraite du fichier servi', corps.length > 300, String(c
 
 function monter(serveurAccepte) {
   const etat = { cache: {}, local: null, bandeaux: [], rendus: 0 };
+  // `cleLocale` : depuis le 13/09, chaque site range ses copies locales sous son
+  // nom (les deux sites de finances partagent la mémoire du navigateur). La
+  // page la définit au niveau global ; la fonction extraite a besoin qu'on la lui donne.
   const f = new Function(
     '_snapTous', '_snapLire', '_SNAP_N', '_snapContenu', '_settingsCache',
-    '_pushSetting', 'window', 'renderRecovery', 'showSaveStatus',
+    '_pushSetting', 'window', 'renderRecovery', 'showSaveStatus', 'cleLocale',
     corps + '; return snapshotManuel;')(
       () => [], () => null, 3, () => ({ ents: [1, 2] }), etat.cache,
       async () => serveurAccepte,
       { storage: { set: (k, v) => { etat.local = v; } } },
       () => { etat.rendus++; },
-      (txt, couleur) => { etat.bandeaux.push([txt, couleur || 'vert']); });
+      (txt, couleur) => { etat.bandeaux.push([txt, couleur || 'vert']); },
+      (nom) => 'fin_banc_' + nom);
   return { f, etat };
 }
 

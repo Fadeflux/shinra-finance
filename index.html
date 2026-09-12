@@ -954,6 +954,19 @@ const CB={'Manager':'#2a2010','Twitter':'#1a2030','ADS':'#2d1f10','SFS':'#1f2d1f
 let ents=[],chi=null,ap=null,acd=null,acdEnd=null,afs=[],afc=0,vas=[],af='Tous',alf='tous',aaf='tous',alertFilter='tous',profitChartInst=null,activeSourceReco='tous';
 let _editingId=null,_histPage=0,_histPerPage=20,_recapChart=null,_histPayerFilter='tous',_pieChart=null;
 let virements=[],modeles=[];
+// ⚠️ LES DEUX SITES DE FINANCES PARTAGEAIENT LA MÉMOIRE DU NAVIGATEUR (13/09).
+// noctra-finance et shinra-finance sont servis par la MÊME adresse
+// (fadeflux.github.io) : pour le navigateur, c'est un seul site, avec un seul
+// localStorage — et les deux écrivaient les mêmes clés (`crm_virements`,
+// `crm_ents`, `crm_modeles`…). Ouvrir l'un puis l'autre dans le même
+// navigateur : la copie de secours de l'un devenait celle de l'autre, et les
+// virements « récupérés depuis ce navigateur » pouvaient être FUSIONNÉS dans
+// le cloud de la MAUVAISE agence. Chaque site range maintenant ses copies sous
+// son nom. Les anciennes clés `crm_*` ne sont plus lues pour restaurer (on ne
+// sait pas à quelle agence elles appartiennent) ni effacées.
+const SITE_FINANCES='shinra';
+function cleLocale(nom){ return 'fin_'+SITE_FINANCES+'_'+nom; }
+let _VIR_AFFICHES=null;   // la liste telle qu'affichée : les boutons ✕ y renvoient par position
 let _role='owner',_pendingRole='owner';
 let editLog=[];
 
@@ -1175,7 +1188,7 @@ function renderRiskPanel(pool){
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:#555;min-width:18px">#${i+1}</span>
             <span style="font-size:12px;color:#ccc;font-weight:500">${esc(v.name)}</span>
-            <span style="font-size:10px;padding:1px 6px;border-radius:3px;background:${CB[v.cat]||'#222'};color:${cc}">${v.cat}</span>
+            <span style="font-size:10px;padding:1px 6px;border-radius:3px;background:${CB[v.cat]||'#222'};color:${cc}">${esc(v.cat)}</span>
           </div>
           <div style="text-align:right;font-size:11px">
             <span style="color:${barColor};font-weight:600">${pct.toFixed(1)}% CA</span>
@@ -1225,6 +1238,7 @@ function renderVirements(){
   set('vir-reste-det',b.reste<=0?'✅ Tout reçu !':fmtR(b.reste)+' encore dû');
   renderRapprochement();
   const el=document.getElementById('vir-list');if(!el)return;
+  _VIR_AFFICHES=virements.slice();
   if(!virements.length){el.innerHTML='<div class="emsg">Aucun virement enregistré</div>';return;}
   el.innerHTML=virements.map((v,i)=>`
     <div class="txrow" style="align-items:center">
@@ -1356,7 +1370,7 @@ async function _saveVirements(){
         virements = (virements||[]).concat(repeches)
           .sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
         console.info('[Paiements] ' + repeches.length + ' paiement(s) d un autre appareil recuperes avant ecriture');
-        try{ if(typeof renderModelShare==='function') renderModelShare(); }catch(e){}
+        try{ if(typeof renderModelShare==='function') renderModelShare(); else if(typeof renderVirements==='function') renderVirements(); }catch(e){}
       }
     }
   }catch(e){
@@ -1399,8 +1413,15 @@ async function addVirement(){
 }
 
 async function deleteVirement(i){
-  const v=virements[i]; if(!v)return;
+  // ⚠️ (13/09) `i` est la position de la ligne À L'AFFICHAGE. Si la liste a bougé
+  // depuis (virements d'un autre appareil fusionnés puis re-triés, restauration),
+  // virements[i] n'était plus la ligne cliquée : on supprimait UN AUTRE virement.
+  const v=(typeof _VIR_AFFICHES!=='undefined'&&_VIR_AFFICHES)?_VIR_AFFICHES[i]:virements[i];
+  const _changee=()=>{ try{renderVirements();}catch(e){} showSaveStatus('⚠ La liste a changé entre-temps — rien supprimé. Vérifie la ligne et recommence.','#f87171'); };
+  if(!v || virements.indexOf(v)<0){ _changee(); return; }
   if(!await showConfirm('Supprimer ce virement de '+fmtR(v.amount)+' ? Cette action est irreversible.'))return;
+  i=virements.indexOf(v);   // la liste a pu bouger pendant la question
+  if(i<0){ _changee(); return; }
   logEdit('Suppression virement', dl(v.date)+' - '+fmtR(v.amount));
   _VIREMENTS_SUPPRIMES.add(_cleVirement(v));   // pour que la fusion ne le ressuscite pas
   virements.splice(i,1);
@@ -1420,11 +1441,11 @@ function setHistPayerFilter(v,btn){
 }
 function saveDefaultPayers(){
   const d={va:gpb('pb-iv'),mo:gpb('pb-im'),ci:gpb('pb-ici'),ch:gpb('pb-ich')};
-  localStorage.setItem('crm_pb_defaults',JSON.stringify(d));
+  localStorage.setItem(cleLocale('pb_defaults'),JSON.stringify(d));
   showSaveStatus('✓ Payeurs par défaut sauvegardés');
 }
 function loadDefaultPayers(){
-  try{const d=JSON.parse(localStorage.getItem('crm_pb_defaults')||'{}');
+  try{const d=JSON.parse(localStorage.getItem(cleLocale('pb_defaults'))||'{}');
     if(d.va)spb('pb-iv',d.va);if(d.mo)spb('pb-im',d.mo);
     if(d.ci)spb('pb-ici',d.ci);if(d.ch)spb('pb-ich',d.ch);
   }catch{}
@@ -1482,7 +1503,7 @@ function showAlertDetails(type){
             <div style="width:28px;height:28px;border-radius:50%;background:${CB[v.cat]||'#222'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:${CC[v.cat]||'#888'};flex-shrink:0">${esc(v.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2))}</div>
             <div>
               <div style="font-size:13px;color:#ccc;font-weight:500">${esc(v.name)}</div>
-              <div style="font-size:11px;color:#555;margin-top:1px">${v.cat} · ${v.subs} subs</div>
+              <div style="font-size:11px;color:#555;margin-top:1px">${esc(v.cat)} · ${v.subs} subs</div>
             </div>
           </div>
           <div style="text-align:right">
@@ -1809,10 +1830,10 @@ function _recSig(o){ return [o&&o.date,Number(o&&o.amount)||0,String((o&&o.note)
 
 function renderRecovery(){
   const el=document.getElementById('recovery-box'); if(!el) return;
-  const vir=_recLire('crm_virements')||[];
-  const ent=_recLire('crm_ents')||[];
-  const mod=_recLire('crm_modeles')||[];
-  const vs =_recLire('crm_vas')||[];
+  const vir=_recLire(cleLocale('virements'))||[];
+  const ent=_recLire(cleLocale('ents'))||[];
+  const mod=_recLire(cleLocale('modeles'))||[];
+  const vs =_recLire(cleLocale('vas'))||[];
 
   const vusVir=new Set((virements||[]).map(_recSig));
   const virManquants=vir.filter(o=>!vusVir.has(_recSig(o)));
@@ -1846,11 +1867,16 @@ function renderRecovery(){
       +'<div style="font-size:11px;color:#8a7f5a;margin-top:5px">Essaie sur l\'appareil / le navigateur où tu les avais saisis (autre PC, téléphone, autre navigateur). Cette page affichera ce qu\'il contient.</div>'
       +'</div>';
   }
+  // Ancienne copie COMMUNE aux deux sites (avant le 13/09) : signalée, jamais restaurée.
+  const _ancienne=_recLire('crm_'+'virements');
+  if(_ancienne&&_ancienne.length){
+    html+='<div style="margin-top:10px;font-size:11px;color:#8a7f5a">⚠️ Une ancienne copie de '+_ancienne.length+' virement(s) (d’avant le 13/09) existe encore dans ce navigateur. Elle était commune aux sites Noctra et Shinra et peut mélanger les deux agences : elle n’est plus proposée à la restauration.</div>';
+  }
   el.innerHTML=html;
 }
 
 async function restaurerVirements(){
-  const vir=_recLire('crm_virements')||[];
+  const vir=_recLire(cleLocale('virements'))||[];
   const vus=new Set((virements||[]).map(_recSig));
   const manquants=vir.filter(o=>!vus.has(_recSig(o)));
   if(!manquants.length){ showSaveStatus('Rien à restaurer','#facc15'); return; }
@@ -1927,7 +1953,7 @@ async function snapshotSiNecessaire(){
     const okCloud = await _pushSetting('snapshot_' + cible, contenu);
     if (okCloud){
       _settingsCache['snapshot_' + cible] = txt;
-      try{ window.storage.set('crm_snapshot_local', txt); }catch(e){}
+      try{ window.storage.set(cleLocale('snapshot_local'), txt); }catch(e){}
       console.info('[Sauvegarde] point de restauration ' + cible + ' écrit (' + (ents||[]).length + ' entrées)');
     } else {
       // On NE touche PAS au cache : le prochain passage réessaiera au lieu
@@ -2002,7 +2028,7 @@ async function snapshotManuel(){
   const _ok = await _pushSetting('snapshot_' + cible, contenu);
   if (_ok){
     _settingsCache['snapshot_' + cible] = _txt;
-    try{ window.storage.set('crm_snapshot_local', _txt); }catch(e){}
+    try{ window.storage.set(cleLocale('snapshot_local'), _txt); }catch(e){}
     try{ renderRecovery(); }catch(e){}
     showSaveStatus('✓ Point de restauration créé');
   } else {
@@ -2776,8 +2802,8 @@ function rv(){
   const tb=document.getElementById('tbs');
   if(s.length>=2){
     tb.style.display='grid';
-    document.getElementById('t5l').innerHTML=s.slice(0,5).map((v,i)=>{const cc=CC[v.cat]||'#888';const rc=i===0?'#facc15':i===1?'#aaa':i===2?'#fb923c':'#333';return `<div class="t5c"><div class="t5r" style="color:${rc}">#${i+1}</div><div class="t5i"><div class="t5n">${esc(v.name)}</div><div class="t5p" style="color:#4ade80">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${v.cat} · profit total ${fmt(v.profit)}</div></div></div>`;}).join('');
-    document.getElementById('b5l').innerHTML=[...s].reverse().slice(0,5).map((v,i)=>{const cc=CC[v.cat]||'#888';return `<div class="t5c"><div class="t5r" style="color:#444">#${s.length-i}</div><div class="t5i"><div class="t5n">${esc(v.name)}</div><div class="t5p" style="color:${v.pps>=0?'#facc15':'#f87171'}">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${v.cat} · profit total ${fmt(v.profit)}</div></div></div>`;}).join('');
+    document.getElementById('t5l').innerHTML=s.slice(0,5).map((v,i)=>{const cc=CC[v.cat]||'#888';const rc=i===0?'#facc15':i===1?'#aaa':i===2?'#fb923c':'#333';return `<div class="t5c"><div class="t5r" style="color:${rc}">#${i+1}</div><div class="t5i"><div class="t5n">${esc(v.name)}</div><div class="t5p" style="color:#4ade80">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${esc(v.cat)} · profit total ${fmt(v.profit)}</div></div></div>`;}).join('');
+    document.getElementById('b5l').innerHTML=[...s].reverse().slice(0,5).map((v,i)=>{const cc=CC[v.cat]||'#888';return `<div class="t5c"><div class="t5r" style="color:#444">#${s.length-i}</div><div class="t5i"><div class="t5n">${esc(v.name)}</div><div class="t5p" style="color:${v.pps>=0?'#facc15':'#f87171'}">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${esc(v.cat)} · profit total ${fmt(v.profit)}</div></div></div>`;}).join('');
   } else {tb.style.display='none';}
   const cats=['Tous',...new Set(filteredVas.map(v=>v.cat))];
   document.getElementById('cff').innerHTML=cats.map(c=>`<button class="cfb${c===af?' active':''}" onclick="fc('${esc(c)}',this)">${c}</button>`).join('');
@@ -2814,8 +2840,8 @@ function renderVA(filteredVas, flt){
     const qBot=(document.getElementById('searchBottom5')?.value||'').toLowerCase();
     const top5=filteredVA.filter(v=>v.name.toLowerCase().includes(qTop)||v.cat.toLowerCase().includes(qTop)).slice(0,5);
     const bottom5=[...filteredVA].reverse().filter(v=>v.name.toLowerCase().includes(qBot)||v.cat.toLowerCase().includes(qBot)).slice(0,5);
-    document.getElementById('t5l').innerHTML=top5.length?top5.map((v,i)=>{const cc=CC[v.cat]||'#888';const rc=i===0?'#facc15':i===1?'#aaa':i===2?'#fb923c':'#333';return `<div class="t5c"><div class="t5r" style="color:${rc}">#${i+1}</div><div class="t5i"><div class="t5n">${esc(v.name)}</div><div class="t5p" style="color:#4ade80">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${v.cat} · total ${fmt(v.profit)}</div></div></div>`;}).join(''):'<div class="emsg">Aucun résultat</div>';
-    document.getElementById('b5l').innerHTML=bottom5.length?bottom5.map((v,i)=>{const cc=CC[v.cat]||'#888';return `<div class="t5c"><div class="t5r" style="color:#444">#${filteredVA.length-i}</div><div class="t5i"><div class="t5n">${esc(v.name)}</div><div class="t5p" style="color:${v.pps>=0?'#facc15':'#f87171'}">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${v.cat} · total ${fmt(v.profit)}</div></div></div>`;}).join(''):'<div class="emsg">Aucun résultat</div>';
+    document.getElementById('t5l').innerHTML=top5.length?top5.map((v,i)=>{const cc=CC[v.cat]||'#888';const rc=i===0?'#facc15':i===1?'#aaa':i===2?'#fb923c':'#333';return `<div class="t5c"><div class="t5r" style="color:${rc}">#${i+1}</div><div class="t5i"><div class="t5n">${esc(v.name)}</div><div class="t5p" style="color:#4ade80">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${esc(v.cat)} · total ${fmt(v.profit)}</div></div></div>`;}).join(''):'<div class="emsg">Aucun résultat</div>';
+    document.getElementById('b5l').innerHTML=bottom5.length?bottom5.map((v,i)=>{const cc=CC[v.cat]||'#888';return `<div class="t5c"><div class="t5r" style="color:#444">#${filteredVA.length-i}</div><div class="t5i"><div class="t5n">${esc(v.name)}</div><div class="t5p" style="color:${v.pps>=0?'#facc15':'#f87171'}">${fmt(v.pps)}<span style="font-size:10px;color:#555">/sub</span></div><div class="t5cat" style="color:${cc}">${esc(v.cat)} · total ${fmt(v.profit)}</div></div></div>`;}).join(''):'<div class="emsg">Aucun résultat</div>';
   } else {tb.style.display='none';}
 
   if(!f.length){document.getElementById('vacards').innerHTML='<div class="emsg">Aucun VA dans cette sélection</div>';return;}
@@ -2875,7 +2901,7 @@ function renderVA(filteredVas, flt){
       <button class="varm" onclick="rmVAByName(&quot;${esc(v.name)}&quot;)">×</button>
       <div class="vach" style="padding-left:28px">
         <div class="vaav" style="background:${cb};color:${cc}">${ini}</div>
-        <div><div class="vacn">${esc(v.name)}${periodBadge}</div><div class="vacs">${lh}<span class="cbdg" style="background:${cb};color:${cc}">${v.cat}</span><span class="${rc.c}">${rc.l}</span>${actBadge}${trendBadge}</div></div>
+        <div><div class="vacn">${esc(v.name)}${periodBadge}</div><div class="vacs">${lh}<span class="cbdg" style="background:${cb};color:${cc}">${esc(v.cat)}</span><span class="${rc.c}">${rc.l}</span>${actBadge}${trendBadge}</div></div>
       </div>
       <div class="vsr"><span class="vsrl">Prix par sub</span><span class="vsrv" style="color:#fff">$${v.rate.toFixed(2)}</span></div>
       <div class="vsr"><span class="vsrl">Subs gérés</span><span class="vsrv" style="color:#fff">${v.subs.toLocaleString('en-US')}</span></div>
@@ -3107,7 +3133,7 @@ async function loadData() {
       // Fusion par signature date+montant+note : on n ajoute que ce qui manque,
       // on ne supprime jamais rien.
       try{
-        const _lv=await window.storage.get('crm_virements');
+        const _lv=await window.storage.get(cleLocale('virements'));
         const _pv=_lv?(JSON.parse(_lv.value)||[]):[];
         if(_pv.length){
           const _sig=o=>[o.date,Number(o.amount)||0,String(o.note||'').trim()].join('|');
@@ -3122,7 +3148,7 @@ async function loadData() {
       }catch(_e){}
       // Modèles et journal : relire depuis le cloud (sinon ils repartaient vides à chaque chargement)
       try{ modeles = apiSettings?.modeles ? (JSON.parse(apiSettings.modeles)||[]) : []; }catch(_e){ modeles=[]; }
-      if(!modeles.length){ try{ const _lm=await window.storage.get('crm_modeles'); const _pm=_lm?JSON.parse(_lm.value):[]; if(_pm&&_pm.length){ modeles=_pm; _saveModeles(); } }catch(_e){} }
+      if(!modeles.length){ try{ const _lm=await window.storage.get(cleLocale('modeles')); const _pm=_lm?JSON.parse(_lm.value):[]; if(_pm&&_pm.length){ modeles=_pm; _saveModeles(); } }catch(_e){} }
       try{ editLog = apiSettings?.editlog ? (JSON.parse(apiSettings.editlog)||[]) : []; }catch(_e){ editLog=[]; }
       // Merge wallet data into VA objects
       if (Array.isArray(apiWallets)) {
@@ -3166,11 +3192,11 @@ window.storage = {
 
 async function loadLocal() {
   try {
-    const e = await window.storage.get('crm_ents');
-    const v = await window.storage.get('crm_vas');
-    const vir = await window.storage.get('crm_virements');
-    const mod = await window.storage.get('crm_modeles');
-    const log = await window.storage.get('crm_editlog');
+    const e = await window.storage.get(cleLocale('ents'));
+    const v = await window.storage.get(cleLocale('vas'));
+    const vir = await window.storage.get(cleLocale('virements'));
+    const mod = await window.storage.get(cleLocale('modeles'));
+    const log = await window.storage.get(cleLocale('editlog'));
     if (e) ents = JSON.parse(e.value) || [];
     if (v) vas = JSON.parse(v.value) || [];
     if (vir) virements = JSON.parse(vir.value) || [];
@@ -3188,11 +3214,11 @@ async function saveData() {
   //    entrées, VA, VIREMENTS, modèles, journal.
   if (ecritureInterdite()) return false;
   try {
-    await window.storage.set('crm_ents', JSON.stringify(ents));
-    await window.storage.set('crm_vas',  JSON.stringify(vas));
-    await window.storage.set('crm_virements', JSON.stringify(virements));
-    await window.storage.set('crm_modeles', JSON.stringify(modeles));
-    await window.storage.set('crm_editlog', JSON.stringify(editLog));
+    await window.storage.set(cleLocale('ents'), JSON.stringify(ents));
+    await window.storage.set(cleLocale('vas'),  JSON.stringify(vas));
+    await window.storage.set(cleLocale('virements'), JSON.stringify(virements));
+    await window.storage.set(cleLocale('modeles'), JSON.stringify(modeles));
+    await window.storage.set(cleLocale('editlog'), JSON.stringify(editLog));
   } catch {}
   // On ne renvoie au cloud que les listes REELLEMENT modifiees dans cette session,
   // sinon une simple saisie de CA ecrasait les virements ajoutes par l autre associe.
