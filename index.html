@@ -358,7 +358,8 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
     <div class="login-logo">⚡</div>
     <h2>Shinra Finance</h2>
     <p>Ton tableau de bord financier</p>
-    <input id="login-input" type="password" placeholder="Mot de passe" onkeydown="if(event.key==='Enter')doLogin()">
+    <input id="login-mail" type="email" placeholder="Adresse e-mail" autocomplete="username" style="display:none" onkeydown="if(event.key==='Enter')doLogin()">
+    <input id="login-input" type="password" placeholder="Mot de passe" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     <button id="login-btn" onclick="doLogin()">Accéder →</button>
     <div id="login-error"></div>
   </div>
@@ -2893,7 +2894,16 @@ const API_URL = 'https://crm-agency-production.up.railway.app'; // ancien backen
 // ── Supabase : nouvelle base gratuite (remplace Railway) ──
 const SUPABASE_URL = 'https://awsqamvhddyrumdyzlae.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3c3FhbXZoZGR5cnVtZHl6bGFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjQ4NjksImV4cCI6MjA5OTAwMDg2OX0.V6Jrxx-oz6sjt2L05YYj1zeYAChbjo45ueAO1g5dsd8';
-const SUPA_EMAIL = 'fadefluxagency@gmail.com';
+// ⚠️ L'ADRESSE DE CONNEXION ETAIT ECRITE SUR UNE PAGE PUBLIQUE.
+// Ce dépôt est ouvert : l'adresse du projet Supabase et sa clé « anon » y
+// sont, et c'est normal -- cette clé est faite pour être publique. L'EMAIL,
+// lui, ne l'est pas : publié à côté, il donne la moitié de la clef et désigne
+// exactement quel compte essayer. C'est le même défaut que le champ
+// « Identifiant (andre / manon) » retiré des tableaux de bord le 12/09.
+// Il vit maintenant dans le navigateur : demandé une fois, retenu ensuite.
+// Rien n'est plus publié, et l'usage quotidien ne change pas.
+function mailRetenu(){ try{ return localStorage.getItem('ccs_mail') || ''; }catch(e){ return ''; } }
+function retenirMail(m){ try{ localStorage.setItem('ccs_mail', m); }catch(e){} }
 // Garde CDN : si cdn.jsdelivr est bloque (bloqueur de pub, coupure, panne), window.supabase
 // est absent. Sans cette garde, l exception ici stoppait TOUT le script racine :
 // window.editEntry / duplicateEntry / deleteEntry / addVA n etaient jamais definis et
@@ -2922,7 +2932,17 @@ async function doLogin() {
   if (!sb) { document.getElementById('login-error').textContent = 'Connexion au service impossible. Vérifie ta connexion internet (ou désactive un bloqueur de pub), puis recharge la page.'; return; }
   document.getElementById('login-error').textContent = 'Connexion…';
   let error;
-  try { ({ error } = await sb.auth.signInWithPassword({ email: SUPA_EMAIL, password: val })); }
+  // L'adresse vient du navigateur ; à la première connexion, du champ prévu.
+  const _champMail = document.getElementById('login-mail');
+  const _mail = (mailRetenu() || (_champMail ? _champMail.value.trim() : '')).toLowerCase();
+  if (!_mail) {
+    // On ne devine pas : on MONTRE le champ et on dit pourquoi.
+    if (_champMail) { _champMail.style.display = ''; _champMail.focus(); }
+    document.getElementById('login-error').textContent =
+      'Première connexion sur cet appareil : entre aussi ton adresse e-mail.';
+    return;
+  }
+  try { ({ error } = await sb.auth.signInWithPassword({ email: _mail, password: val })); }
   catch (e) { error = e; }
   if (error) {
     document.getElementById('login-input').value = '';
@@ -2931,6 +2951,7 @@ async function doLogin() {
     document.getElementById('login-error').textContent = _reseau ? 'Connexion impossible \u2014 v\u00e9rifie ta connexion internet puis r\u00e9essaie.' : 'Mot de passe incorrect';
     return;
   }
+  retenirMail(_mail);   // connexion reussie : on retient l'adresse pour la suite
   localStorage.setItem('crm_role', 'owner');
   document.getElementById('login-error').textContent = '';
   document.getElementById('login-overlay').style.display = 'none';
