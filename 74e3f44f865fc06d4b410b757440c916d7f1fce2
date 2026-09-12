@@ -1,0 +1,24 @@
+Ce commit contient DEUX correctifs, le message n'en decrit qu'un. Je l'ecris ici
+plutot que de reecrire un commit deja pousse.
+
+Le second, tout aussi important -- deja fait cote Noctra, reste ouvert ici :
+
+  `saveData()` n'avait AUCUNE garde de lecture seule.
+  `body.readonly` ne fait que CACHER des boutons : la touche Entree, un
+  `onclick` reste visible ou la console du navigateur passaient tout droit. Et
+  cette fonction ecrit TOUT -- entrees, VA, VIREMENTS, modeles, journal. Un
+  compte en lecture seule pouvait donc ecrire de l'argent.
+  Corrige par `if (ecritureInterdite()) return false;` a l'entree, comme chez le
+  jumeau.
+
+  Et le bandeau « ✓ Sauvegarde » s'affichait SANS RIEN VERIFIER : les trois
+  envois n'etaient ni attendus ni lus. Serveur muet, jeton expire, lecture
+  seule -- le vert s'affichait quand meme. C'est exactement ce qui fait qu'on
+  croit un chiffre enregistre alors qu'il n'existe que sur l'ecran.
+  Corrige : on attend les trois, et on annonce l'echec quand il y en a un.
+
+Mesure de couverture avant/apres sur les chemins d'ecriture : 11/17 gardes
+avant, 12/17 apres -- soit exactement le meme compte que le jumeau Noctra. Les
+5 restants ne sont PAS des trous : `_saveModeles` et `_saveEditLog` passent par
+`_pushSetting` qui porte la garde, les deux snapshots aussi, et
+`sendDiscordNotif` n'ecrit pas de donnee.
