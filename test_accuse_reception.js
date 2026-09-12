@@ -83,7 +83,25 @@ console.log('\n-- saveEntry rend un verdict, au lieu de le garder pour elle --')
       !!q && /if\s*\([^)]*ok[^)]*\)\s*showSaveStatus\(/.test(q),
       'le bandeau vert doit dépendre du résultat');
 
-    // ── 3. le contrôle sait échouer ─────────────────────────────────────────
+    // ── 3. restaurer et importer n'annoncent plus avant de savoir ───────────
+    console.log('\n-- restaurer / importer : le succes est CONDITIONNEL --');
+    for (const [nom, entete] of [
+      ['restaurerVirements', 'async function restaurerVirements('],
+      ['restaurerSnapshot',  'async function restaurerSnapshot('],
+    ]) {
+      const b = morceau(entete);
+      V(nom + ' : les écritures sont attendues',
+        !!b && /await\s+_save(Virements|Modeles)/.test(b), nom + ' introuvable ou non attendu');
+      V(nom + ' : le vert est conditionnel',
+        !!b && /if\s*\(\s*!?_ok/.test(b), 'le message de succès doit dépendre du résultat');
+    }
+    // importData vit dans un gestionnaire, pas dans une fonction nommée : on
+    // regarde la page entière pour ces deux formes-là.
+    V('importData : les listes sont attendues',
+      /if\(d\.virements\)\s*_okListes\s*=\s*\(await _saveVirements\(\)\)/.test(SRC));
+    V('importData : le vert est conditionnel', /if\s*\(!_okListes\)/.test(SRC));
+
+    // ── 4. le contrôle sait échouer ─────────────────────────────────────────
     console.log('\n-- le contrôle sait échouer --');
     const avant = "saveEntry(entry); saveData(); showSaveStatus('✓ Entrée ajoutée');";
     V('la forme d’avant n’attendait rien', !/await/.test(avant),

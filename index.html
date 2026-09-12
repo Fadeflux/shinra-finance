@@ -1831,11 +1831,16 @@ async function restaurerVirements(){
   const total=manquants.reduce((s,o)=>s+(Number(o.amount)||0),0);
   if(!await showConfirm('Restaurer '+manquants.length+' virement(s) pour un total de '+fmtR(total)+' ? Rien ne sera supprimé.')) return;
   virements=virements.concat(manquants).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
-  _saveVirements();
+  // ⚠️ ATTENDU. Le message de succès plus bas s'affichait pendant que
+  // l'écriture était encore en vol : « ✓ restauré » sur une restauration
+  // qui n'est pas partie, c'est repartir tranquille avec le problème intact.
+  const _okVir = await _saveVirements();
   try{ logEdit('Restauration virements', manquants.length+' virement(s) · '+fmtR(total)); }catch(e){}
   try{ renderVirements(); }catch(e){}
   try{ renderRecovery(); }catch(e){}
-  showSaveStatus('✓ '+manquants.length+' virement(s) restauré(s) — '+fmtR(total));
+  if (_okVir === false) showSaveStatus("⚠ Restauration NON enregistrée — "
+    + "rien n'est parti au serveur. Refais-la.", '#ef4444');
+  else showSaveStatus('✓ '+manquants.length+' virement(s) restauré(s) — '+fmtR(total));
 }
 
 let _settingsCache={};   // dernier contenu de la table settings (pour lire les sauvegardes)
@@ -1897,6 +1902,7 @@ async function snapshotSiNecessaire(){
 // Restaure un point : FUSION pour les listes (on n'efface jamais), remplacement
 // des entrées uniquement si le point en contient plus que l'état actuel.
 async function restaurerSnapshot(i){
+  let _okRestore = true;
   if (ecritureInterdite('restauration de sauvegarde')) return;
   const s = _snapLire(i);
   if (!s){ showSaveStatus('Point de restauration introuvable', '#f87171'); return; }
@@ -1909,11 +1915,14 @@ async function restaurerSnapshot(i){
   const virAjoutes = (s.virements||[]).filter(o => !vus.has(sig(o)));
   if (virAjoutes.length){
     virements = virements.concat(virAjoutes).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
-    _saveVirements();
+    // ⚠️ Attendu : sinon « ✓ Restauré » s'affiche pendant que l'écriture
+    // est encore en vol -- au moment précis où l'on a besoin de la vérité.
+    _okRestore = (await _saveVirements()) !== false && _okRestore;
   }
   const nomsMod = new Set((modeles||[]).map(m => String(m.name||'').toLowerCase()));
   const modAjoutes = (s.modeles||[]).filter(m => !nomsMod.has(String(m.name||'').toLowerCase()));
-  if (modAjoutes.length){ modeles = modeles.concat(modAjoutes); _saveModeles(); }
+  if (modAjoutes.length){ modeles = modeles.concat(modAjoutes);
+    _okRestore = (await _saveModeles()) !== false && _okRestore; }
 
   // Entrées : on ne rajoute que celles dont la date n'existe pas déjà.
   const datesVues = new Set((ents||[]).map(e => e.date));
@@ -1926,7 +1935,9 @@ async function restaurerSnapshot(i){
   if (ok){ try{ ents = await apiFetch('/api/entries'); }catch(e){} }
   try{ rh(); rc(); uk(); renderVirements(); renderModeles(); renderRecovery(); }catch(e){}
   try{ logEdit('Restauration sauvegarde', dt.toLocaleDateString('fr-FR') + ' · ' + virAjoutes.length + ' virement(s), ' + ok + ' entrée(s)'); }catch(e){}
-  showSaveStatus('✓ Restauré : ' + virAjoutes.length + ' virement(s), ' + ok + ' entrée(s), ' + modAjoutes.length + ' modèle(s)'
+  if (!_okRestore) showSaveStatus("⚠ Restauration INCOMPLÈTE — virements ou "
+    + "modèles NON enregistrés au serveur. Refais-la.", '#ef4444');
+  else showSaveStatus('✓ Restauré : ' + virAjoutes.length + ' virement(s), ' + ok + ' entrée(s), ' + modAjoutes.length + ' modèle(s)'
     + (ko ? ' · ' + ko + ' échec(s)' : ''), ko ? '#facc15' : '#4ade80');
 }
 
@@ -3478,7 +3489,12 @@ function importData(e) {
       // Les listes importees doivent etre marquees comme modifiees, sinon saveData()
       // (qui ne pousse plus que les listes changees) les laissait de cote et l ancienne
       // version du cloud revenait au rechargement suivant.
-      if(d.virements)_saveVirements(); if(d.modeles)_saveModeles();
+      // ⚠️ Attendues, comme `saveData` juste en dessous : sans ça,
+      // « ✓ Import réussi » pouvait s'afficher alors que virements et
+      // modèles étaient encore en vol, voire refusés par le serveur.
+      let _okListes = true;
+      if(d.virements) _okListes = (await _saveVirements()) !== false && _okListes;
+      if(d.modeles)   _okListes = (await _saveModeles())   !== false && _okListes;
       await saveData();
       // Les entrées importées doivent VRAIMENT repartir au cloud, sinon l'import
       // n'existait qu'en mémoire et disparaissait au rechargement suivant.
@@ -3494,7 +3510,9 @@ function importData(e) {
         ents = await apiFetch('/api/entries'); rh(); rc(); uk();
         if (ko) { showSaveStatus('⚠ Import partiel : ' + ko + ' entrée(s) non restaurée(s)', '#f87171'); return; }
       }
-      showSaveStatus('✓ Import réussi');
+      if (!_okListes) showSaveStatus("⚠ Import partiel — virements ou modèles "
+        + "NON enregistrés au serveur.", '#f87171');
+      else showSaveStatus('✓ Import réussi');
     } catch { showSaveStatus('⚠ Fichier invalide', '#f87171'); }
   };
   r.readAsText(file);
