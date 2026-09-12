@@ -954,16 +954,15 @@ const CB={'Manager':'#2a2010','Twitter':'#1a2030','ADS':'#2d1f10','SFS':'#1f2d1f
 let ents=[],chi=null,ap=null,acd=null,acdEnd=null,afs=[],afc=0,vas=[],af='Tous',alf='tous',aaf='tous',alertFilter='tous',profitChartInst=null,activeSourceReco='tous';
 let _editingId=null,_histPage=0,_histPerPage=20,_recapChart=null,_histPayerFilter='tous',_pieChart=null;
 let virements=[],modeles=[];
-// ⚠️ LES DEUX SITES DE FINANCES PARTAGEAIENT LA MÉMOIRE DU NAVIGATEUR (13/09).
-// noctra-finance et shinra-finance sont servis par la MÊME adresse
+// ⚠️ LA MÉMOIRE DU NAVIGATEUR N'ÉTAIT PAS PROPRE À CE SITE (13/09).
+// Ce site est servi par une adresse partagée avec d'autres outils
 // (fadeflux.github.io) : pour le navigateur, c'est un seul site, avec un seul
-// localStorage — et les deux écrivaient les mêmes clés (`crm_virements`,
-// `crm_ents`, `crm_modeles`…). Ouvrir l'un puis l'autre dans le même
-// navigateur : la copie de secours de l'un devenait celle de l'autre, et les
-// virements « récupérés depuis ce navigateur » pouvaient être FUSIONNÉS dans
-// le cloud de la MAUVAISE agence. Chaque site range maintenant ses copies sous
+// localStorage — et les clés `crm_virements`, `crm_ents`, `crm_modeles`…
+// n'avaient rien de propre à ce site. Une copie de secours pouvait donc venir
+// d'un AUTRE outil, et les virements « récupérés depuis ce navigateur »
+// être FUSIONNÉS dans ce cloud. Chaque site range maintenant ses copies sous
 // son nom. Les anciennes clés `crm_*` ne sont plus lues pour restaurer (on ne
-// sait pas à quelle agence elles appartiennent) ni effacées.
+// sait pas d'où elles viennent) ni effacées.
 const SITE_FINANCES='shinra';
 function cleLocale(nom){ return 'fin_'+SITE_FINANCES+'_'+nom; }
 let _VIR_AFFICHES=null;   // la liste telle qu'affichée : les boutons ✕ y renvoient par position
@@ -1370,7 +1369,7 @@ async function _saveVirements(){
         virements = (virements||[]).concat(repeches)
           .sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
         console.info('[Paiements] ' + repeches.length + ' paiement(s) d un autre appareil recuperes avant ecriture');
-        try{ if(typeof renderModelShare==='function') renderModelShare(); else if(typeof renderVirements==='function') renderVirements(); }catch(e){}
+        try{ if(typeof renderVirements==='function') renderVirements(); }catch(e){}
       }
     }
   }catch(e){
@@ -1867,10 +1866,10 @@ function renderRecovery(){
       +'<div style="font-size:11px;color:#8a7f5a;margin-top:5px">Essaie sur l\'appareil / le navigateur où tu les avais saisis (autre PC, téléphone, autre navigateur). Cette page affichera ce qu\'il contient.</div>'
       +'</div>';
   }
-  // Ancienne copie COMMUNE aux deux sites (avant le 13/09) : signalée, jamais restaurée.
+  // Ancienne copie NON PROPRE à ce site (avant le 13/09) : signalée, jamais restaurée.
   const _ancienne=_recLire('crm_'+'virements');
   if(_ancienne&&_ancienne.length){
-    html+='<div style="margin-top:10px;font-size:11px;color:#8a7f5a">⚠️ Une ancienne copie de '+_ancienne.length+' virement(s) (d’avant le 13/09) existe encore dans ce navigateur. Elle était commune aux sites Noctra et Shinra et peut mélanger les deux agences : elle n’est plus proposée à la restauration.</div>';
+    html+='<div style="margin-top:10px;font-size:11px;color:#8a7f5a">⚠️ Une ancienne copie de '+_ancienne.length+' virement(s) (d’avant le 13/09) existe encore dans ce navigateur. Elle n’était pas propre à ce site et peut contenir des données d’un autre outil : elle n’est plus proposée à la restauration.</div>';
   }
   el.innerHTML=html;
 }
@@ -3207,7 +3206,7 @@ async function loadLocal() {
 
 // ── Sauvegarde (API + fallback local) ──
 async function saveData() {
-  // ⚠️ DEUX CORRECTIFS DÉJÀ FAITS CÔTÉ NOCTRA, RESTES OUVERTS ICI (12/09).
+  // ⚠️ DEUX CORRECTIFS MANQUAIENT ICI (12/09).
   // 1) AUCUNE GARDE DE LECTURE SEULE. `body.readonly` ne fait que CACHER des
   //    boutons : la touche Entrée, un `onclick` resté visible ou la console du
   //    navigateur passaient tout droit. Et cette fonction écrit TOUT --
