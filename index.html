@@ -1054,7 +1054,7 @@ function renderModeles(){
   set('mod-paid',fmtR(totalPaid));
   const diff=totalDu-totalPaid;
   const deltaEl=document.getElementById('mod-delta');
-  if(deltaEl){deltaEl.textContent=diff<=0?'✅ À jour':'−'+fmtR(diff)+' reste à payer';deltaEl.style.color=diff<=0?'#4ade80':'#f87171';}
+  if(deltaEl){deltaEl.textContent=diff<=0?'✅ À jour':'−'+fmtR(diff)+' reste à payer (chiffre qui fait foi)';deltaEl.style.color=diff<=0?'#4ade80':'#f87171';}
   const el=document.getElementById('modeles-cards');if(!el)return;
   if(!modeles.length){el.innerHTML='<div class="emsg">Aucun modèle ajouté</div>';return;}
   el.innerHTML=modeles.map(m=>{
@@ -1088,6 +1088,12 @@ function renderModeles(){
           <div style="font-size:16px;font-weight:700;color:${resteColor}">${reste>0?fmtR(reste):'✅'}</div>
         </div>
       </div>
+      ${moEntries>0?`<div style="font-size:11px;color:#fbbf24;background:#1a1508;border:0.5px solid #3a2f10;border-radius:5px;padding:8px 10px;margin-bottom:10px;line-height:1.45">
+        ⚠️ <b>Ce « Reste » ne compte que les paiements loggés sur CETTE fiche.</b>
+        ${fmtR(moEntries)} ont aussi été versés via la case « Paiement Modèle » des entrées
+        du jour, sans dire à quelle modèle — impossible de les répartir ici.
+        <b>Le vrai reste global est celui du bandeau en haut</b> (${fmtR(totalDu-totalPaid)}).
+      </div>`:''}
       ${m.notes?`<div style="font-size:11px;color:#555;font-style:italic;margin-bottom:10px">💬 ${esc(m.notes)}</div>`:''}
       <!-- Log paiement -->
       <div style="background:#0e0e0e;border-radius:6px;padding:10px;border:0.5px solid #1a1a1a;margin-bottom:8px">
@@ -1363,7 +1369,7 @@ async function _saveVirements(){
 // Modèles et journal : eux aussi n'étaient sauvés nulle part (perdus à chaque rechargement).
 function _saveModeles(){ _dirty.modeles=true; _pushSetting('modeles',modeles); }
 function _saveEditLog(){ _dirty.editlog=true; _pushSetting('editlog',editLog.slice(0,200)); }
-function addVirement(){
+async function addVirement(){
   const date=document.getElementById('vir-date')?.value||ts();
   // ⚠️ UN VIREMENT EST DE L'ARGENT QUI PART : « 1,000 » y valait 1 $, et le
   // « reste à envoyer » réclamait alors 999 $ de plus que la réalité.
@@ -1372,10 +1378,24 @@ function addVirement(){
   const amount=_lu.valeur;
   const note=document.getElementById('vir-note')?.value.trim()||'';
   if(!amount)return;
-  virements.unshift({date,amount,note});
+  // ⚠️ (12/09) Un IDENTIFIANT : sans lui, deux virements identiques le même jour
+  // (même montant, sans note) avaient la même clé de fusion, et l'un des deux
+  // disparaissait quand la liste était relue.
+  virements.unshift({id:_nouvelIdVirement(),date,amount,note});
   document.getElementById('vir-amount').value='';
   document.getElementById('vir-note').value='';
-  renderVirements();saveData();_saveVirements();
+  renderVirements();
+  // ⚠️ (12/09) Un virement est de l'argent qui part : l'écran doit dire s'il est
+  // VRAIMENT enregistré. Avant, rien n'était attendu ni lu — affiché à l'écran,
+  // absent de la base, et « reste à envoyer » remontait au rechargement.
+  const _ok = await _saveVirements();
+  try{ saveData(); }catch(e){}
+  if(_ok === false){
+    showSaveStatus("⚠ Virement NON enregistré au cloud — il n'existe que sur cet écran. "
+      + "Ne le refais pas : vérifie ta connexion, recharge, et regarde s'il est là.", '#ef4444');
+  } else {
+    showSaveStatus('✓ Virement enregistré');
+  }
 }
 
 async function deleteVirement(i){
@@ -1384,7 +1404,12 @@ async function deleteVirement(i){
   logEdit('Suppression virement', dl(v.date)+' - '+fmtR(v.amount));
   _VIREMENTS_SUPPRIMES.add(_cleVirement(v));   // pour que la fusion ne le ressuscite pas
   virements.splice(i,1);
-  renderVirements();saveData();_saveVirements();
+  renderVirements();
+  const _ok = await _saveVirements();
+  try{ saveData(); }catch(e){}
+  if(_ok === false){
+    showSaveStatus("⚠ Suppression NON enregistrée au cloud — ce virement reviendra au rechargement.", '#ef4444');
+  }
 }
 
 function setHistPayerFilter(v,btn){
@@ -1893,10 +1918,24 @@ async function snapshotSiNecessaire(){
     if (!cible) cible = tous[tous.length - 1].i;                                 // sinon le plus ancien
     const contenu = _snapContenu();
     const txt = JSON.stringify(contenu);
-    _settingsCache['snapshot_' + cible] = txt;
-    _pushSetting('snapshot_' + cible, contenu);
-    try{ window.storage.set('crm_snapshot_local', txt); }catch(e){}
-    console.info('[Sauvegarde] point de restauration ' + cible + ' écrit (' + (ents||[]).length + ' entrées)');
+    // ⚠️ ON ANNONÇAIT « POINT DE RESTAURATION ÉCRIT » SANS ATTENDRE LA RÉPONSE
+    // (12/09, protection du site jumeau restée ouverte ici). Le point était noté
+    // dans `_settingsCache` AVANT l'envoi, `_pushSetting` partait sans `await`.
+    // Si le serveur refusait, l'application croyait avoir une sauvegarde : le
+    // garde-fou « pas plus d'un point toutes les 20 h » interdisait alors toute
+    // nouvelle tentative. Le jour où il aurait fallu restaurer, il n'y avait RIEN.
+    const okCloud = await _pushSetting('snapshot_' + cible, contenu);
+    if (okCloud){
+      _settingsCache['snapshot_' + cible] = txt;
+      try{ window.storage.set('crm_snapshot_local', txt); }catch(e){}
+      console.info('[Sauvegarde] point de restauration ' + cible + ' écrit (' + (ents||[]).length + ' entrées)');
+    } else {
+      // On NE touche PAS au cache : le prochain passage réessaiera au lieu
+      // d'attendre 20 h derrière un point qui n'existe pas.
+      console.warn('[Sauvegarde] point de restauration ' + cible + ' REFUSÉ par le serveur — non enregistré, nouvelle tentative au prochain passage');
+      try{ if(typeof showSaveStatus==='function' && !document.body.classList.contains('readonly'))
+        showSaveStatus('⚠ Point de restauration NON enregistré (serveur injoignable)', '#ef4444'); }catch(e){}
+    }
   }catch(e){ console.warn('snapshot', e); }
 }
 
@@ -3165,7 +3204,11 @@ async function saveData() {
   let _tous = true;
   try{
     const _r = await Promise.all([
-      _dirty.virements ? _pushSetting('virements', virements)          : true,
+      // ⚠️ (12/09) Par la RELECTURE du serveur, pas en envoi brut : dès qu'un
+      // virement avait été touché dans la session, chaque saisie renvoyait la
+      // liste locale telle quelle et effaçait les virements ajoutés entre-temps
+      // par l'autre associé. `_saveVirements()` existait, et n'était pas appelée ici.
+      _dirty.virements ? _saveVirements()                              : true,
       _dirty.modeles   ? _pushSetting('modeles', modeles)              : true,
       _dirty.editlog   ? _pushSetting('editlog', editLog.slice(0,200)) : true,
     ]);
@@ -3229,11 +3272,28 @@ async function deleteVAAPI(name) {
   catch (e) { console.warn('Delete VA failed', e); }
 }
 
+// ⚠️ UN AVERTISSEMENT D'ÉCHEC ÉTAIT EFFACÉ PAR UN « ✓ Sauvegardé » DANS LE
+// MÊME BATTEMENT (12/09, protection du site jumeau restée ouverte ici).
+// Séquence réelle : `saveEntry` affiche « ⚠ NON SAUVEGARDÉ — hors ligne », puis
+// le journal appelle `saveData()` qui affiche « ✓ Sauvegardé » : le rouge n'était
+// JAMAIS visible. Tu fermes, et la journée n'existe pas.
+// Désormais : un message d'ÉCHEC tient 20 secondes et ne peut pas être remplacé
+// par un message de succès. Seul un autre échec, ou l'expiration, le libère.
+let _echecAffiche = 0;
 function showSaveStatus(msg, color='#4ade80') {
   const el = document.getElementById('save-status');
   if (!el) return;
+  const estEchec = /⚠|NON SAUVEGARD|NON ENREGISTR|échec|erreur|hors ligne/i.test(String(msg));
+  const maintenant = Date.now();
+  // Un succès ne recouvre pas un échec récent : c'est tout le problème.
+  if(!estEchec && _echecAffiche && (maintenant - _echecAffiche) < 20000) return;
+  _echecAffiche = estEchec ? maintenant : 0;
   el.textContent = msg; el.style.color = color; el.style.opacity = '1';
-  setTimeout(() => { el.style.opacity = '0'; }, 2500);
+  const duree = estEchec ? 20000 : 2500;   // un échec doit rester lisible
+  setTimeout(() => {
+    // On n'efface que SON propre message (un autre a pu passer entre-temps).
+    if(el.textContent === msg) el.style.opacity = '0';
+  }, duree);
 }
 
 // Message inline (sous un bouton) — remplace les popups alert() et confirme les saisies
