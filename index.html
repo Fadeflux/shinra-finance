@@ -3900,7 +3900,40 @@ document.addEventListener('keydown',e=>{
 });
 
 loadTheme();
-if(new URLSearchParams(location.search).get('ro')==='1')document.body.classList.add('readonly');
+// ⚠️ LE MODE LECTURE SEULE TENAIT A SIX CARACTERES DANS L'URL.
+// Il s'activait sur `?ro=1` et RIEN d'autre : la personne qu'il restreint
+// n'avait qu'a effacer le parametre de la barre d'adresse pour retrouver
+// l'ecriture. Une restriction que son destinataire peut retirer n'est pas
+// une restriction.
+// Il est desormais COLLANT : une fois vu, il est retenu dans ce navigateur
+// et survit au retrait du parametre, a un rechargement et a la fermeture.
+// Pour en sortir volontairement : ouvrir la page avec `?ro=0`.
+//
+// ⚠⚠ CE N'EST PAS UNE FRONTIERE DE SECURITE, ET IL FAUT LE DIRE.
+// Tout le monde se connecte ici avec LE MEME compte Supabase
+// (`SUPA_EMAIL`) : la base ne peut donc pas savoir QUI ecrit, et aucune
+// regle cote serveur ne peut distinguer l'operateur de son associee. Ce
+// garde empeche les accidents et le contournement facile ; il ne tient pas
+// contre quelqu'un qui vide le stockage du navigateur.
+// La seule vraie separation serait un SECOND compte Supabase, avec des
+// regles de ligne (RLS) en lecture seule. Ca se configure cote Supabase,
+// pas ici -- et tant que ce n'est pas fait, mieux vaut le savoir que le
+// croire.
+(function(){
+  var p = new URLSearchParams(location.search).get('ro');
+  try{
+    if (p === '0') localStorage.removeItem('ccs_ro');
+    else if (p === '1') localStorage.setItem('ccs_ro', '1');
+  }catch(e){}
+  var actif = (p === '1');
+  if (p !== '0') {
+    // Le stockage peut etre refuse (navigation privee, reglages) : on lit
+    // dans un try, et l'absence de reponse ne vaut PAS « ecriture permise »
+    // si le parametre, lui, est la.
+    try{ actif = actif || localStorage.getItem('ccs_ro') === '1'; }catch(e){}
+  }
+  if (actif) document.body.classList.add('readonly');
+})();
 setUser(_currentUser);
 (function(){
   const di=document.getElementById('entry-date-input');
