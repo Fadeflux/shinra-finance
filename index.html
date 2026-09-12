@@ -1936,11 +1936,30 @@ async function snapshotManuel(){
   for (let i = 1; i <= _SNAP_N && !cible; i++) if (!_snapLire(i)) cible = i;
   if (!cible) cible = tous.length ? tous[tous.length-1].i : 1;
   const contenu = _snapContenu();
-  _settingsCache['snapshot_' + cible] = JSON.stringify(contenu);
-  _pushSetting('snapshot_' + cible, contenu);
-  try{ window.storage.set('crm_snapshot_local', JSON.stringify(contenu)); }catch(e){}
-  try{ renderRecovery(); }catch(e){}
-  showSaveStatus('✓ Point de restauration créé');
+  const _txt = JSON.stringify(contenu);
+  // ⚠️ ON ANNONÇAIT « POINT CRÉÉ » SANS RIEN VÉRIFIER.
+  // Le point était posé dans `_settingsCache` AVANT l'envoi, `_pushSetting`
+  // partait sans `await` et son résultat n'était pas lu, puis le bandeau vert
+  // s'affichait. Si le serveur refusait (hors ligne, jeton expiré, lecture
+  // seule, 500), l'application croyait dur comme fer avoir une sauvegarde :
+  // `_snapTous()` lit ce même cache, et le garde-fou « pas plus d'un point
+  // toutes les 20 h » interdisait alors toute nouvelle tentative. Le jour où il
+  // aurait fallu restaurer, il n'y avait RIEN -- et rien ne l'avait jamais dit.
+  // Le voisin automatique (`snapshotSiNecessaire`) avait été corrigé ; celui
+  // qu'on CLIQUE, non. On attend la confirmation, et on ne note le point que
+  // s'il existe vraiment.
+  const _ok = await _pushSetting('snapshot_' + cible, contenu);
+  if (_ok){
+    _settingsCache['snapshot_' + cible] = _txt;
+    try{ window.storage.set('crm_snapshot_local', _txt); }catch(e){}
+    try{ renderRecovery(); }catch(e){}
+    showSaveStatus('✓ Point de restauration créé');
+  } else {
+    // On NE touche PAS au cache : la prochaine tentative doit repartir de zéro
+    // au lieu d'attendre 20 h derrière un point qui n'existe pas.
+    try{ renderRecovery(); }catch(e){}
+    showSaveStatus("⚠ Point de restauration NON enregistré — rien n'a été sauvegardé.", '#ef4444');
+  }
 }
 
 function renderSnapshots(){
@@ -3091,6 +3110,12 @@ async function loadLocal() {
 
 // ── Sauvegarde (API + fallback local) ──
 async function saveData() {
+  // ⚠️ DEUX CORRECTIFS DÉJÀ FAITS CÔTÉ NOCTRA, RESTES OUVERTS ICI (12/09).
+  // 1) AUCUNE GARDE DE LECTURE SEULE. `body.readonly` ne fait que CACHER des
+  //    boutons : la touche Entrée, un `onclick` resté visible ou la console du
+  //    navigateur passaient tout droit. Et cette fonction écrit TOUT --
+  //    entrées, VA, VIREMENTS, modèles, journal.
+  if (ecritureInterdite()) return false;
   try {
     await window.storage.set('crm_ents', JSON.stringify(ents));
     await window.storage.set('crm_vas',  JSON.stringify(vas));
@@ -3100,12 +3125,24 @@ async function saveData() {
   } catch {}
   // On ne renvoie au cloud que les listes REELLEMENT modifiees dans cette session,
   // sinon une simple saisie de CA ecrasait les virements ajoutes par l autre associe.
+  // 2) « ✓ Sauvegardé » S'AFFICHAIT SANS RIEN VÉRIFIER. Les trois envois
+  //    n'étaient pas attendus et leur résultat n'était pas lu : serveur muet,
+  //    jeton expiré, lecture seule -- le bandeau vert s'affichait quand même.
+  //    C'est exactement ce qui fait qu'on croit un chiffre enregistré alors
+  //    qu'il n'existe que sur l'écran.
+  let _tous = true;
   try{
-    if(_dirty.virements)_pushSetting('virements',virements);
-    if(_dirty.modeles)_pushSetting('modeles',modeles);
-    if(_dirty.editlog)_pushSetting('editlog',editLog.slice(0,200));
-  }catch(e){}
-  showSaveStatus('✓ Sauvegardé');
+    const _r = await Promise.all([
+      _dirty.virements ? _pushSetting('virements', virements)          : true,
+      _dirty.modeles   ? _pushSetting('modeles', modeles)              : true,
+      _dirty.editlog   ? _pushSetting('editlog', editLog.slice(0,200)) : true,
+    ]);
+    _tous = _r.every(x => x !== false);
+  }catch(e){ _tous = false; }
+  if(_tous) showSaveStatus('✓ Sauvegardé');
+  else showSaveStatus("⚠ NON SAUVEGARDÉ au cloud — tes chiffres n'existent que sur "
+                      + "cet écran. Vérifie ta connexion avant de fermer.", '#ef4444');
+  return _tous;
 }
 
 async function saveEntry(entry) {
