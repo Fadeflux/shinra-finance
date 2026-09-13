@@ -1944,7 +1944,7 @@ async function snapshotSiNecessaire(){
     const contenu = _snapContenu();
     const txt = JSON.stringify(contenu);
     // ⚠️ ON ANNONÇAIT « POINT DE RESTAURATION ÉCRIT » SANS ATTENDRE LA RÉPONSE
-    // (12/09, protection du site jumeau restée ouverte ici). Le point était noté
+    // (corrigé le 12/09). Le point était noté
     // dans `_settingsCache` AVANT l'envoi, `_pushSetting` partait sans `await`.
     // Si le serveur refusait, l'application croyait avoir une sauvegarde : le
     // garde-fou « pas plus d'un point toutes les 20 h » interdisait alors toute
@@ -3298,7 +3298,7 @@ async function deleteVAAPI(name) {
 }
 
 // ⚠️ UN AVERTISSEMENT D'ÉCHEC ÉTAIT EFFACÉ PAR UN « ✓ Sauvegardé » DANS LE
-// MÊME BATTEMENT (12/09, protection du site jumeau restée ouverte ici).
+// MÊME BATTEMENT (corrigé le 12/09).
 // Séquence réelle : `saveEntry` affiche « ⚠ NON SAUVEGARDÉ — hors ligne », puis
 // le journal appelle `saveData()` qui affiche « ✓ Sauvegardé » : le rouge n'était
 // JAMAIS visible. Tu fermes, et la journée n'existe pas.

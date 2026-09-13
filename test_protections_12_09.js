@@ -1,5 +1,5 @@
-// Cinq protections déjà posées sur le site jumeau, restées ouvertes ici (12/09).
-// Trouvées en comparant les deux pages fonction par fonction.
+// Cinq protections qui manquaient ici (12/09), trouvées en relisant la page
+// fonction par fonction.
 //
 // ⚠️ Ce test n'ouvre AUCUNE connexion : il extrait les fonctions du vrai
 // index.html et les fait tourner contre un faux serveur en mémoire. Il ne touche
@@ -22,7 +22,7 @@
 // (+) Le « reste à payer » du bandeau et celui des fiches se contredisent quand
 //    des paiements ont été saisis dans les entrées du jour : on dit lequel fait foi.
 //
-// Lancer : node test_ecarts_jumeau.js [autre/index.html]
+// Lancer : node test_protections_12_09.js [autre/index.html]
 'use strict';
 const fs = require('fs');
 const path = require('path');

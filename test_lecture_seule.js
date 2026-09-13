@@ -15,7 +15,7 @@
 // import, restauration de sauvegarde — n'avaient pour tout garde que
 // `_apiConnected`. En lecture seule, la classe CSS cache des boutons ; la touche
 // Entree, un `onclick` reste visible ou la console du navigateur passaient tout
-// droit. C'est le motif des jumeaux : une regle ecrite une fois, appliquee a un
+// droit. C'est le motif classique : une regle ecrite une fois, appliquee a un
 // chemin sur dix.
 //
 // METHODE. Chaque fonction est appelee DEUX FOIS :
