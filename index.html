@@ -2963,7 +2963,7 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 // sont, et c'est normal -- cette clé est faite pour être publique. L'EMAIL,
 // lui, ne l'est pas : publié à côté, il donne la moitié de la clef et désigne
 // exactement quel compte essayer. C'est le même défaut que le champ
-// « Identifiant (andre / manon) » retiré des tableaux de bord le 12/09.
+// champ d'identifiant qui nommait les comptes, retiré des tableaux de bord le 12/09.
 // Il vit maintenant dans le navigateur : demandé une fois, retenu ensuite.
 // Rien n'est plus publié, et l'usage quotidien ne change pas.
 function mailRetenu(){ try{ return localStorage.getItem('ccs_mail') || ''; }catch(e){ return ''; } }

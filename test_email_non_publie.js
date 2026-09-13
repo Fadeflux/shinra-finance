@@ -7,8 +7,8 @@
 // quel compte essayer. Le mot de passe devient alors la seule chose entre
 // n'importe qui et tous les chiffres.
 //
-// C'est le même défaut que le champ « Identifiant (andre / manon) » retiré des
-// tableaux de bord le même jour.
+// C'est le même défaut que le champ d'identifiant qui nommait les comptes,
+// retiré des tableaux de bord le même jour.
 //
 //     node test_email_non_publie.js
 
