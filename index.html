@@ -2228,7 +2228,7 @@ function renderInsights(){
   const va=f.reduce((s,e)=>s+(e.va||0),0),mo=f.reduce((s,e)=>s+(e.mo||0),0),ci=f.reduce((s,e)=>s+(e.ci||0),0),ch=f.reduce((s,e)=>s+(e.ch||0),0),al=f.reduce((s,e)=>s+(e.alT||0),0);
   const net=br*.78,dep=va+mo+ci+ch+al,pr=net-dep;
   const items=[];
-  items.push({ic:'💰',c:pr>=0?'#4ade80':'#f87171',t:'Profit <b>'+fmtR(pr)+'</b> · marge <b>'+Math.round(pr/br*100)+'%</b>'});
+  items.push({ic:'💰',c:pr>=0?'#4ade80':'#f87171',t:'Profit <b>'+fmtR(pr)+'</b> · marge <b>'+Math.round(pr/net*100)+'%</b>'});
   const postes=[['Paiement VA',va],['Modèle',mo],['Chat IA',ci],['Chat Humain',ch],['Dép. diverses',al]];
   const mx=postes.reduce((a,b)=>b[1]>a[1]?b:a,['',0]);
   if(mx[1]>0)items.push({ic:'🎯',c:'#facc15',t:'Plus gros poste : <b>'+mx[0]+'</b> ('+fmtR(mx[1])+', '+Math.round(mx[1]/br*100)+'%)'});
@@ -2378,7 +2378,11 @@ function rh(){
   if(!total){document.getElementById('txlist').innerHTML=_filtreActif?'<div class="emsg">Aucun résultat — <button onclick="document.getElementById(\'hist-search\').value=\'\';setHistPayerFilter(\'tous\',document.getElementById(\'hpf-tous\'));" style="background:none;border:none;color:var(--acc);cursor:pointer;text-decoration:underline;font-size:inherit;font-family:inherit">effacer le filtre</button></div>':'<div class="emsg">Aucune entrée pour cette période</div>';document.getElementById('hist-pagination').innerHTML='';return;}
   document.getElementById('txlist').innerHTML=page.map((e,i)=>{
     const ri=base.indexOf(e);
-    const mg=e.brut>0?Math.round(e.profit/e.brut*100):0;
+    // Marge calculee sur le NET (ce qui arrive vraiment), PAS sur le CA brut.
+    // La commission de la plateforme est un prelevement en amont, pas une perte de
+    // marge : sans aucune depense, la marge doit afficher 100%, pas 78%/80%.
+    const _netL=(e.brut||0)*0.78;
+    const mg=_netL>0?Math.round(e.profit/_netL*100):0;
     const pb=e.paidBy||{};
     const pbTag=(v,key)=>v>0?`<span style="font-size:9px;padding:1px 4px;border-radius:3px;margin-left:3px;background:${(pb[key]||'moi')==='moi'?'#1a2030':'#221a2d'};color:${(pb[key]||'moi')==='moi'?'#60a5fa':'#e879f9'}">${(pb[key]||'moi')==='moi'?'M':'A'}</span>`:'';
     const alL=e.alI&&e.alI.length?e.alI:[];
@@ -2966,8 +2970,8 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 // champ d'identifiant qui nommait les comptes, retiré des tableaux de bord le 12/09.
 // Il vit maintenant dans le navigateur : demandé une fois, retenu ensuite.
 // Rien n'est plus publié, et l'usage quotidien ne change pas.
-function mailRetenu(){ try{ return localStorage.getItem('ccs_mail') || ''; }catch(e){ return ''; } }
-function retenirMail(m){ try{ localStorage.setItem('ccs_mail', m); }catch(e){} }
+function mailRetenu(){ try{ return localStorage.getItem('crm_mail') || ''; }catch(e){ return ''; } }
+function retenirMail(m){ try{ localStorage.setItem('crm_mail', m); }catch(e){} }
 // Garde CDN : si cdn.jsdelivr est bloque (bloqueur de pub, coupure, panne), window.supabase
 // est absent. Sans cette garde, l exception ici stoppait TOUT le script racine :
 // window.editEntry / duplicateEntry / deleteEntry / addVA n etaient jamais definis et
@@ -3206,12 +3210,10 @@ async function loadLocal() {
 
 // ── Sauvegarde (API + fallback local) ──
 async function saveData() {
-  // ⚠️ DEUX CORRECTIFS MANQUAIENT ICI (12/09).
-  // 1) AUCUNE GARDE DE LECTURE SEULE. `body.readonly` ne fait que CACHER des
-  //    boutons : la touche Entrée, un `onclick` resté visible ou la console du
-  //    navigateur passaient tout droit. Et cette fonction écrit TOUT --
-  //    entrées, VA, VIREMENTS, modèles, journal.
-  if (ecritureInterdite()) return false;
+  // ⚠️ AUCUNE GARDE DE LECTURE SEULE. `body.readonly` ne fait que CACHER des
+  // boutons : la touche Entrée, un `onclick` resté visible ou la console du
+  // navigateur passaient tout droit. Et cette fonction écrit TOUT.
+  if (typeof ecritureInterdite === 'function' && ecritureInterdite()) return false;
   try {
     await window.storage.set(cleLocale('ents'), JSON.stringify(ents));
     await window.storage.set(cleLocale('vas'),  JSON.stringify(vas));
@@ -3221,11 +3223,9 @@ async function saveData() {
   } catch {}
   // On ne renvoie au cloud que les listes REELLEMENT modifiees dans cette session,
   // sinon une simple saisie de CA ecrasait les virements ajoutes par l autre associe.
-  // 2) « ✓ Sauvegardé » S'AFFICHAIT SANS RIEN VÉRIFIER. Les trois envois
-  //    n'étaient pas attendus et leur résultat n'était pas lu : serveur muet,
-  //    jeton expiré, lecture seule -- le bandeau vert s'affichait quand même.
-  //    C'est exactement ce qui fait qu'on croit un chiffre enregistré alors
-  //    qu'il n'existe que sur l'écran.
+  // ⚠️ « ✓ Sauvegardé » S'AFFICHAIT SANS RIEN VÉRIFIER : les trois envois
+  // n'étaient ni attendus ni lus. Serveur muet, jeton expiré, lecture seule --
+  // le vert s'affichait quand même.
   let _tous = true;
   try{
     const _r = await Promise.all([
@@ -3595,9 +3595,8 @@ function importData(e) {
       // Les listes importees doivent etre marquees comme modifiees, sinon saveData()
       // (qui ne pousse plus que les listes changees) les laissait de cote et l ancienne
       // version du cloud revenait au rechargement suivant.
-      // ⚠️ Attendues, comme `saveData` juste en dessous : sans ça,
-      // « ✓ Import réussi » pouvait s'afficher alors que virements et
-      // modèles étaient encore en vol, voire refusés par le serveur.
+      // ⚠️ Attendues : sans ça, « ✓ Import réussi » pouvait s'afficher alors
+      // que virements et modèles étaient encore en vol, voire refusés.
       let _okListes = true;
       if(d.virements) _okListes = (await _saveVirements()) !== false && _okListes;
       if(d.modeles)   _okListes = (await _saveModeles())   !== false && _okListes;
@@ -4028,15 +4027,15 @@ loadTheme();
 (function(){
   var p = new URLSearchParams(location.search).get('ro');
   try{
-    if (p === '0') localStorage.removeItem('ccs_ro');
-    else if (p === '1') localStorage.setItem('ccs_ro', '1');
+    if (p === '0') localStorage.removeItem('crm_ro');
+    else if (p === '1') localStorage.setItem('crm_ro', '1');
   }catch(e){}
   var actif = (p === '1');
   if (p !== '0') {
     // Le stockage peut etre refuse (navigation privee, reglages) : on lit
     // dans un try, et l'absence de reponse ne vaut PAS « ecriture permise »
     // si le parametre, lui, est la.
-    try{ actif = actif || localStorage.getItem('ccs_ro') === '1'; }catch(e){}
+    try{ actif = actif || localStorage.getItem('crm_ro') === '1'; }catch(e){}
   }
   if (actif) document.body.classList.add('readonly');
 })();
