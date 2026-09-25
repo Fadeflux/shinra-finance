@@ -842,10 +842,6 @@ body:not(.light) [style*=";color:#888"],body:not(.light) [style^="color:#888"]{c
 
 <!-- PAGE CA -->
 <div class="page active" id="page-ca">
-  <div id="day-evolution" style="display:none;border-radius:8px;padding:10px 16px;margin-bottom:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-    <div style="font-size:12px;color:#666" id="day-evo-label">Évolution</div>
-    <div style="font-size:20px;font-weight:500" id="day-evo-value"></div>
-  </div>
   <div class="dash-header">
     <div><div class="dash-sub" id="plbl" style="font-size:13px;color:#888">Depuis toujours — toutes les entrées</div></div>
     <div class="period-bar">
@@ -867,159 +863,14 @@ body:not(.light) [style*=";color:#888"],body:not(.light) [style^="color:#888"]{c
     <div style="font-size:13px;color:#888;max-width:430px;margin:0 auto 20px;line-height:1.5">Aucune entrée pour l'instant. Ajoute ta première entrée de CA ci-dessous — ton profit, tes dépenses et tes stats apparaîtront ici automatiquement.</div>
     <button onclick="var i=document.getElementById('ib');if(i){i.scrollIntoView({behavior:'smooth',block:'center'});i.focus();}" style="background:var(--acc);border:none;border-radius:10px;padding:11px 20px;color:var(--acc-ink);font-size:13px;font-weight:600;cursor:pointer">+ Saisir ma première entrée</button>
   </div>
-  <div id="insights-banner" style="display:none;flex-wrap:wrap;align-items:center;gap:12px 26px;background:linear-gradient(100deg,rgba(74,222,128,.06),transparent 55%);border:1px solid #1e1e24;border-radius:12px;padding:13px 18px;margin-bottom:20px"></div>
   <div class="kpi-sec">Résultat</div>
   <div class="kpi-hero-grid">
     <div class="kpi kpi-hero" style="border-top-color:#4ade80"><div class="kpi-label"><svg class="kpi-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span class="tip">Profit<i class="tip-icon">i</i><span class="tip-box">Net − toutes dépenses. Ce que tu gardes réellement.</span></span></div><div class="kpi-value" style="color:#4ade80" id="vpr">—</div><span class="kpi-delta" id="dvpr" title="vs période précédente"></span><div class="kpi-pct" id="ppr">–</div></div>
     <div class="kpi" style="border-top-color:#fff"><div class="kpi-label"><svg class="kpi-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span class="tip">CA Brut<i class="tip-icon">i</i><span class="tip-box">Chiffre d'affaires total avant toute déduction</span></span></div><div class="kpi-value" style="color:#4ade80" id="vb">—</div><span class="kpi-delta" id="dvb" title="vs période précédente"></span><div class="kpi-pct" id="de">–</div></div>
     <div class="kpi" style="border-top-color:#60a5fa"><div class="kpi-label"><svg class="kpi-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5"/></svg><span class="tip">Net<i class="tip-icon">i</i><span class="tip-box">CA Brut × 78% — ce que tu touches réellement</span></span></div><div class="kpi-value" style="color:#4ade80" id="vn">—</div><span class="kpi-delta" id="dvn" title="vs période précédente"></span><div class="kpi-pct" id="pn">–</div></div>
   </div>
-  <div class="kpi-sec">Dépenses &amp; commission</div>
-  <div class="kpi-dep-grid">
-    <div class="kpi" style="border-top-color:#f87171"><div class="kpi-label"><span class="tip">Commission<i class="tip-icon">i</i><span class="tip-box">OnlyFans prélève 20% + Skrill 2% = 22% du CA brut</span></span></div><div class="kpi-value" style="color:#eee" id="vof">—</div><div class="kpi-pct">−22% du CA</div></div>
-    <div class="kpi" style="border-top-color:#facc15"><div class="kpi-label"><span class="tip">VA<i class="tip-icon">i</i><span class="tip-box">Paiements versés aux Virtual Assistants</span></span></div><div class="kpi-value" style="color:#eee" id="vva">—</div><div class="kpi-pct" id="pva">–</div></div>
-    <div class="kpi" style="border-top-color:#a78bfa"><div class="kpi-label"><span class="tip">Modèle<i class="tip-icon">i</i><span class="tip-box">Paiements versés au/à la modèle</span></span></div><div class="kpi-value" style="color:#eee" id="vmo">—</div><div class="kpi-pct" id="pmo">–</div></div>
-    <div class="kpi" style="border-top-color:#22d3ee"><div class="kpi-label"><span class="tip">Chat IA<i class="tip-icon">i</i><span class="tip-box">Coût du chatting automatisé par IA</span></span></div><div class="kpi-value" style="color:#eee" id="vci">—</div><div class="kpi-pct" id="pci">–</div></div>
-    <div class="kpi" style="border-top-color:#fb923c"><div class="kpi-label"><span class="tip">Chat Humain<i class="tip-icon">i</i><span class="tip-box">Coût du chatting réalisé par des humains</span></span></div><div class="kpi-value" style="color:#eee" id="vch">—</div><div class="kpi-pct" id="pch">–</div></div>
-    <div class="kpi" style="border-top-color:#e879f9"><div class="kpi-label"><span class="tip">Dép. diverses<i class="tip-icon">i</i><span class="tip-box">Dépenses ponctuelles (pub, outils, etc.)</span></span></div><div class="kpi-value" style="color:#eee" id="val">—</div><div class="kpi-pct" id="pal">–</div></div>
-    <div class="kpi" style="border-top-color:#f87171"><div class="kpi-label"><span class="tip">Dép. totales<i class="tip-icon">i</i><span class="tip-box">VA + Modèle + Chat IA + Chat Humain + Aléatoires</span></span></div><div class="kpi-value" style="color:#f87171" id="vdep">—</div><span class="kpi-delta" id="dvdep" title="vs période précédente"></span><div class="kpi-pct" id="pdep">–</div></div>
-  </div>
-
-  <div id="advances-panel" style="display:none;background:#111;border-radius:8px;padding:12px 16px;border:1px solid #1a1a1a;border-top:2px solid #1a1a1a;margin-bottom:12px">
-    <div style="font-size:10px;color:#444;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;font-weight:600">💳 Avances — le business doit rembourser</div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap">
-      <div style="flex:1;min-width:140px;background:#0e0e0e;border-radius:6px;padding:10px 12px;border:0.5px solid #1e1e1e;border-top:1.5px solid #60a5fa">
-        <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Moi</div>
-        <div style="font-size:20px;font-weight:700;color:#60a5fa" id="adv-moi">—</div>
-        <div style="font-size:10px;color:#3a3a3a;margin-top:3px" id="adv-moi-det">–</div>
-      </div>
-      <div style="flex:1;min-width:140px;background:#0e0e0e;border-radius:6px;padding:10px 12px;border:0.5px solid #1e1e1e;border-top:1.5px solid #e879f9">
-        <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Associé</div>
-        <div style="font-size:20px;font-weight:700;color:#e879f9" id="adv-assoc">—</div>
-        <div style="font-size:10px;color:#3a3a3a;margin-top:3px" id="adv-assoc-det">–</div>
-      </div>
-    </div>
-    <div id="adv-bilan" style="margin-top:10px;padding-top:10px;border-top:0.5px solid #1e1e1e;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <div style="font-size:12px" id="adv-bilan-txt">–</div>
-      <div id="adv-alert" style="display:none;font-size:11px;font-weight:500;color:#f87171;background:#2d1a1a;border:0.5px solid #f87171;border-radius:5px;padding:3px 10px">⚠ Net insuffisant pour couvrir les avances</div>
-    </div>
-    <div id="adv-profit" style="display:none;margin-top:10px;padding-top:10px;border-top:0.5px solid #1e1e1e">
-      <div style="font-size:10px;color:#444;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Ce que chacun reçoit au total (avances + profit 50/50)</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <div style="flex:1;min-width:120px;background:#0e0e0e;border-radius:5px;padding:8px 10px;border:0.5px solid #1e1e1e;border-left:2px solid #60a5fa">
-          <div style="font-size:9px;color:#555;margin-bottom:3px;text-transform:uppercase">Moi au total</div>
-          <div style="font-size:16px;font-weight:700;color:#4ade80" id="adv-total-moi">—</div>
-          <div style="font-size:10px;color:#3a3a3a;margin-top:2px" id="adv-total-moi-det">–</div>
-        </div>
-        <div style="flex:1;min-width:120px;background:#0e0e0e;border-radius:5px;padding:8px 10px;border:0.5px solid #1e1e1e;border-left:2px solid #e879f9">
-          <div style="font-size:9px;color:#555;margin-bottom:3px;text-transform:uppercase">Associé au total</div>
-          <div style="font-size:16px;font-weight:700;color:#4ade80" id="adv-total-assoc">—</div>
-          <div style="font-size:10px;color:#3a3a3a;margin-top:2px" id="adv-total-assoc-det">–</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- PANEL VIREMENTS -->
-  <div class="panel" style="margin-bottom:12px" id="virements-panel">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-      <div>
-        <div class="panel-title">💸 Virements reçus de l'associé</div>
-        <div class="panel-sub" style="margin-bottom:0">suivi de ce qu'il t'a envoyé · solde en temps réel sur toutes les entrées</div>
-      </div>
-    </div>
-    <!-- Solde global -->
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-      <div style="flex:1;min-width:110px;background:#0e0e0e;border-radius:6px;padding:10px 12px;border:0.5px solid #1e1e1e;border-top:1.5px solid #60a5fa">
-        <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Il te doit au total</div>
-        <div style="font-size:18px;font-weight:700;color:#60a5fa" id="vir-du">—</div>
-        <div style="font-size:9px;color:#3a3a3a;margin-top:2px" id="vir-du-det">avances + 50% profit</div>
-      </div>
-      <div style="flex:1;min-width:110px;background:#0e0e0e;border-radius:6px;padding:10px 12px;border:0.5px solid #1e1e1e;border-top:1.5px solid #4ade80">
-        <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Tu as reçu</div>
-        <div style="font-size:18px;font-weight:700;color:#4ade80" id="vir-recu">$0</div>
-        <div style="font-size:9px;color:#3a3a3a;margin-top:2px" id="vir-recu-nb">0 virement(s)</div>
-      </div>
-      <div style="flex:1;min-width:110px;background:#0e0e0e;border-radius:6px;padding:10px 12px;border:0.5px solid #1e1e1e;border-top:1.5px solid #f87171">
-        <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Reste à recevoir</div>
-        <div id="vir-reste" style="font-size:18px;font-weight:700;color:#f87171">—</div>
-        <div style="font-size:9px;color:#3a3a3a;margin-top:2px" id="vir-reste-det">–</div>
-      </div>
-    </div>
-    <!-- Formulaire ajout virement -->
-    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;padding:10px;background:#0e0e0e;border-radius:6px;border:0.5px solid #1a1a1a">
-      <div><div class="ilbl">Date</div><input class="ifield" type="date" id="vir-date" style="width:140px"></div>
-      <div><div class="ilbl">Montant ($)</div><input class="ifield" type="number" id="vir-amount" placeholder="ex: 500" style="width:120px" onkeydown="if(event.key==='Enter')addVirement()"></div>
-      <div style="flex:1;min-width:140px"><div class="ilbl">Note</div><input class="ifield" type="text" id="vir-note" placeholder="ex: virement semaine 1 juin" onkeydown="if(event.key==='Enter')addVirement()"></div>
-      <button onclick="addVirement()" style="background:var(--acc);border:none;border-radius:7px;padding:8px 16px;color:var(--acc-ink);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif">+ Ajouter</button>
-    </div>
-    <!-- Liste virements -->
-    <div id="vir-list"><div class="emsg">Aucun virement enregistré</div></div>
-  </div>
-
-  <!-- RAPPROCHEMENT COMPLET -->
-  <div class="panel" style="margin-bottom:12px" id="rapprochement-panel">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <div>
-        <div class="panel-title">⚖ Rapprochement associé</div>
-        <div class="panel-sub" style="margin-bottom:0">répartition exacte — qui doit quoi à qui</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
-        <span style="font-size:10px;color:#777;text-transform:uppercase;letter-spacing:.04em">Jusqu'au</span>
-        <input type="date" id="rapp-cutoff" onchange="renderVirements()" style="background:#111;border:0.5px solid #333;border-radius:6px;padding:5px 8px;color:#ccc;font-size:11px;outline:none">
-        <button onclick="var d=new Date();d.setDate(d.getDate()-7);document.getElementById('rapp-cutoff').value=d.toISOString().slice(0,10);renderVirements()" title="Exclure les 7 derniers jours (argent OnlyFans encore en attente)" style="background:#1a1a1a;border:0.5px solid #2a2a2a;border-radius:6px;padding:5px 9px;color:#facc15;font-size:10px;cursor:pointer;font-weight:600">−7 j</button>
-        <button onclick="document.getElementById('rapp-cutoff').value='';renderVirements()" title="Inclure tout" style="background:#1a1a1a;border:0.5px solid #2a2a2a;border-radius:6px;padding:5px 9px;color:#888;font-size:10px;cursor:pointer">Tout</button>
-        <button onclick="document.getElementById('rapprochement-detail').style.display=document.getElementById('rapprochement-detail').style.display==='none'?'block':'none'" style="background:#1a1a1a;border:0.5px solid #2a2a2a;border-radius:6px;padding:5px 12px;color:#666;font-size:11px;cursor:pointer">Détail ▾</button>
-      </div>
-    </div>
-    <div id="rapprochement-content"><div class="emsg">Aucune donnée</div></div>
-    <div id="rapprochement-detail" style="display:none;margin-top:10px;padding-top:10px;border-top:0.5px solid #222">
-      <div id="rapprochement-detail-content"></div>
-    </div>
-  </div>
-
-  <div id="forecast-card" style="display:none;background:#1a1a1a;border-radius:10px;border:0.5px solid #2a2a2a;padding:16px;margin-bottom:12px">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
-      <div>
-        <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px"><span class="tip">Prévision fin de mois<i class="tip-icon">i</i><span class="tip-box">Projection basée sur la moyenne journalière actuelle</span></span></div>
-        <div style="font-size:26px;font-weight:500;color:#60a5fa" id="forecast-val">—</div>
-        <div style="font-size:11px;color:#555;margin-top:4px" id="forecast-sub">–</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Objectif mensuel</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <input type="number" id="monthly-goal" placeholder="ex: 20000" oninput="onGoalChange()"
-            style="width:110px;background:#111;border:0.5px solid #333;border-radius:6px;padding:6px 10px;color:#fff;font-size:13px;outline:none;text-align:right">
-          <span style="font-size:12px;color:#555">$</span>
-        </div>
-        <div style="font-size:11px;margin-top:6px" id="forecast-goal-pct">–</div>
-      </div>
-    </div>
-    <div style="margin-top:10px;padding-top:10px;border-top:0.5px solid #222;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span style="font-size:10px;color:#444;white-space:nowrap">🔔 Discord</span>
-      <input id="discord-webhook" type="text" placeholder="https://discord.com/api/webhooks/…" oninput="saveDiscordWebhook()"
-        style="flex:1;min-width:0;background:#111;border:0.5px solid #2a2a2a;border-radius:6px;padding:5px 10px;color:#888;font-size:11px;outline:none">
-      <button onclick="testDiscord()" style="background:#1a1a1a;border:0.5px solid #333;border-radius:6px;padding:5px 10px;color:#666;font-size:11px;cursor:pointer;white-space:nowrap">Tester</button>
-    </div>
-    <div style="margin-top:12px;background:#111;border-radius:6px;height:6px;overflow:hidden">
-      <div id="forecast-bar" style="height:6px;border-radius:6px;background:#60a5fa;width:0%;transition:width .4s"></div>
-    </div>
-    <div id="forecast-goal-detail" style="display:none;margin-top:10px;padding:10px 12px;background:#0e0e0e;border-radius:7px;border:0.5px solid #222">
-      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
-        <div id="forecast-rest-goal" style="font-size:12px;color:#ccc"></div>
-        <div id="forecast-date-goal" style="font-size:11px;color:#555"></div>
-      </div>
-      <div style="margin-top:8px;background:#1a1a1a;border-radius:4px;height:10px;overflow:hidden;position:relative">
-        <div id="forecast-bar-actual" style="position:absolute;height:10px;border-radius:4px;background:#4ade80;transition:width .4s;z-index:2"></div>
-        <div id="forecast-bar-proj" style="position:absolute;height:10px;border-radius:4px;background:#60a5fa55;transition:width .4s;z-index:1"></div>
-      </div>
-      <div style="display:flex;gap:12px;margin-top:6px">
-        <span style="font-size:10px;color:#4ade80">● Atteint</span>
-        <span style="font-size:10px;color:#60a5fa">● Projection</span>
-        <span style="font-size:10px;color:#333">● Objectif</span>
-      </div>
-    </div>
-  </div>
+  <div id="insights-banner" style="display:none;flex-wrap:wrap;align-items:center;gap:12px 26px;background:linear-gradient(100deg,rgba(74,222,128,.06),transparent 55%);border:1px solid #1e1e24;border-radius:12px;padding:13px 18px;margin-bottom:20px"></div>
+  <div class="kpi-sec">SAISIE</div>
   <div class="panel" id="ca-entry-panel" style="margin-bottom:12px">
     <div class="panel-title">Saisir une entrée</div>
     <div class="panel-sub" id="edlbl">Sélectionne d'abord une date ou période</div>
@@ -1084,15 +935,162 @@ body:not(.light) [style*=";color:#888"],body:not(.light) [style^="color:#888"]{c
     <button class="sbtn" onclick="se()"><span id="sbtn-text">+ Enregistrer cette entrée</span></button>
     <div id="se-msg" style="font-size:12px;text-align:center;min-height:16px;margin-top:8px;opacity:0;transition:opacity .2s"></div>
   </div>
+  <div class="kpi-sec">ASSOCIÉ — QUI DOIT QUOI</div>
+  <div id="advances-panel" style="display:none;background:#111;border-radius:8px;padding:12px 16px;border:1px solid #1a1a1a;border-top:2px solid #1a1a1a;margin-bottom:12px">
+    <div style="font-size:10px;color:#444;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;font-weight:600">💳 Avances — le business doit rembourser</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:140px;background:#0e0e0e;border-radius:6px;padding:10px 12px;border:0.5px solid #1e1e1e;border-top:1.5px solid #60a5fa">
+        <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Moi</div>
+        <div style="font-size:20px;font-weight:700;color:#60a5fa" id="adv-moi">—</div>
+        <div style="font-size:10px;color:#3a3a3a;margin-top:3px" id="adv-moi-det">–</div>
+      </div>
+      <div style="flex:1;min-width:140px;background:#0e0e0e;border-radius:6px;padding:10px 12px;border:0.5px solid #1e1e1e;border-top:1.5px solid #e879f9">
+        <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Associé</div>
+        <div style="font-size:20px;font-weight:700;color:#e879f9" id="adv-assoc">—</div>
+        <div style="font-size:10px;color:#3a3a3a;margin-top:3px" id="adv-assoc-det">–</div>
+      </div>
+    </div>
+    <div id="adv-bilan" style="margin-top:10px;padding-top:10px;border-top:0.5px solid #1e1e1e;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div style="font-size:12px" id="adv-bilan-txt">–</div>
+      <div id="adv-alert" style="display:none;font-size:11px;font-weight:500;color:#f87171;background:#2d1a1a;border:0.5px solid #f87171;border-radius:5px;padding:3px 10px">⚠ Net insuffisant pour couvrir les avances</div>
+    </div>
+    <div id="adv-profit" style="display:none;margin-top:10px;padding-top:10px;border-top:0.5px solid #1e1e1e">
+      <div style="font-size:10px;color:#444;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Ce que chacun reçoit au total (avances + profit 50/50)</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div style="flex:1;min-width:120px;background:#0e0e0e;border-radius:5px;padding:8px 10px;border:0.5px solid #1e1e1e;border-left:2px solid #60a5fa">
+          <div style="font-size:9px;color:#555;margin-bottom:3px;text-transform:uppercase">Moi au total</div>
+          <div style="font-size:16px;font-weight:700;color:#4ade80" id="adv-total-moi">—</div>
+          <div style="font-size:10px;color:#3a3a3a;margin-top:2px" id="adv-total-moi-det">–</div>
+        </div>
+        <div style="flex:1;min-width:120px;background:#0e0e0e;border-radius:5px;padding:8px 10px;border:0.5px solid #1e1e1e;border-left:2px solid #e879f9">
+          <div style="font-size:9px;color:#555;margin-bottom:3px;text-transform:uppercase">Associé au total</div>
+          <div style="font-size:16px;font-weight:700;color:#4ade80" id="adv-total-assoc">—</div>
+          <div style="font-size:10px;color:#3a3a3a;margin-top:2px" id="adv-total-assoc-det">–</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="panel" style="margin-bottom:12px" id="virements-panel">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <div>
+        <div class="panel-title">💸 Virements reçus de l'associé</div>
+        <div class="panel-sub" style="margin-bottom:0">suivi de ce qu'il t'a envoyé · solde en temps réel sur toutes les entrées</div>
+      </div>
+    </div>
+    <!-- Solde global -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="flex:1;min-width:110px;background:#0e0e0e;border-radius:6px;padding:10px 12px;border:0.5px solid #1e1e1e;border-top:1.5px solid #60a5fa">
+        <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Il te doit au total</div>
+        <div style="font-size:18px;font-weight:700;color:#60a5fa" id="vir-du">—</div>
+        <div style="font-size:9px;color:#3a3a3a;margin-top:2px" id="vir-du-det">avances + 50% profit</div>
+      </div>
+      <div style="flex:1;min-width:110px;background:#0e0e0e;border-radius:6px;padding:10px 12px;border:0.5px solid #1e1e1e;border-top:1.5px solid #4ade80">
+        <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Tu as reçu</div>
+        <div style="font-size:18px;font-weight:700;color:#4ade80" id="vir-recu">$0</div>
+        <div style="font-size:9px;color:#3a3a3a;margin-top:2px" id="vir-recu-nb">0 virement(s)</div>
+      </div>
+      <div style="flex:1;min-width:110px;background:#0e0e0e;border-radius:6px;padding:10px 12px;border:0.5px solid #1e1e1e;border-top:1.5px solid #f87171">
+        <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Reste à recevoir</div>
+        <div id="vir-reste" style="font-size:18px;font-weight:700;color:#f87171">—</div>
+        <div style="font-size:9px;color:#3a3a3a;margin-top:2px" id="vir-reste-det">–</div>
+      </div>
+    </div>
+    <!-- Formulaire ajout virement -->
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;padding:10px;background:#0e0e0e;border-radius:6px;border:0.5px solid #1a1a1a">
+      <div><div class="ilbl">Date</div><input class="ifield" type="date" id="vir-date" style="width:140px"></div>
+      <div><div class="ilbl">Montant ($)</div><input class="ifield" type="number" id="vir-amount" placeholder="ex: 500" style="width:120px" onkeydown="if(event.key==='Enter')addVirement()"></div>
+      <div style="flex:1;min-width:140px"><div class="ilbl">Note</div><input class="ifield" type="text" id="vir-note" placeholder="ex: virement semaine 1 juin" onkeydown="if(event.key==='Enter')addVirement()"></div>
+      <button onclick="addVirement()" style="background:var(--acc);border:none;border-radius:7px;padding:8px 16px;color:var(--acc-ink);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif">+ Ajouter</button>
+    </div>
+    <!-- Liste virements -->
+    <div id="vir-list"><div class="emsg">Aucun virement enregistré</div></div>
+  </div>
+  <div class="panel" style="margin-bottom:12px" id="rapprochement-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div class="panel-title">⚖ Rapprochement associé</div>
+        <div class="panel-sub" style="margin-bottom:0">répartition exacte — qui doit quoi à qui</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+        <span style="font-size:10px;color:#777;text-transform:uppercase;letter-spacing:.04em">Jusqu'au</span>
+        <input type="date" id="rapp-cutoff" onchange="renderVirements()" style="background:#111;border:0.5px solid #333;border-radius:6px;padding:5px 8px;color:#ccc;font-size:11px;outline:none">
+        <button onclick="var d=new Date();d.setDate(d.getDate()-7);document.getElementById('rapp-cutoff').value=d.toISOString().slice(0,10);renderVirements()" title="Exclure les 7 derniers jours (argent OnlyFans encore en attente)" style="background:#1a1a1a;border:0.5px solid #2a2a2a;border-radius:6px;padding:5px 9px;color:#facc15;font-size:10px;cursor:pointer;font-weight:600">−7 j</button>
+        <button onclick="document.getElementById('rapp-cutoff').value='';renderVirements()" title="Inclure tout" style="background:#1a1a1a;border:0.5px solid #2a2a2a;border-radius:6px;padding:5px 9px;color:#888;font-size:10px;cursor:pointer">Tout</button>
+        <button onclick="document.getElementById('rapprochement-detail').style.display=document.getElementById('rapprochement-detail').style.display==='none'?'block':'none'" style="background:#1a1a1a;border:0.5px solid #2a2a2a;border-radius:6px;padding:5px 12px;color:#666;font-size:11px;cursor:pointer">Détail ▾</button>
+      </div>
+    </div>
+    <div id="rapprochement-content"><div class="emsg">Aucune donnée</div></div>
+    <div id="rapprochement-detail" style="display:none;margin-top:10px;padding-top:10px;border-top:0.5px solid #222">
+      <div id="rapprochement-detail-content"></div>
+    </div>
+  </div>
+  <div class="kpi-sec">Dépenses &amp; commission</div>
+  <div class="kpi-dep-grid">
+    <div class="kpi" style="border-top-color:#f87171"><div class="kpi-label"><span class="tip">Commission<i class="tip-icon">i</i><span class="tip-box">OnlyFans prélève 20% + Skrill 2% = 22% du CA brut</span></span></div><div class="kpi-value" style="color:#eee" id="vof">—</div><div class="kpi-pct">−22% du CA</div></div>
+    <div class="kpi" style="border-top-color:#facc15"><div class="kpi-label"><span class="tip">VA<i class="tip-icon">i</i><span class="tip-box">Paiements versés aux Virtual Assistants</span></span></div><div class="kpi-value" style="color:#eee" id="vva">—</div><div class="kpi-pct" id="pva">–</div></div>
+    <div class="kpi" style="border-top-color:#a78bfa"><div class="kpi-label"><span class="tip">Modèle<i class="tip-icon">i</i><span class="tip-box">Paiements versés au/à la modèle</span></span></div><div class="kpi-value" style="color:#eee" id="vmo">—</div><div class="kpi-pct" id="pmo">–</div></div>
+    <div class="kpi" style="border-top-color:#22d3ee"><div class="kpi-label"><span class="tip">Chat IA<i class="tip-icon">i</i><span class="tip-box">Coût du chatting automatisé par IA</span></span></div><div class="kpi-value" style="color:#eee" id="vci">—</div><div class="kpi-pct" id="pci">–</div></div>
+    <div class="kpi" style="border-top-color:#fb923c"><div class="kpi-label"><span class="tip">Chat Humain<i class="tip-icon">i</i><span class="tip-box">Coût du chatting réalisé par des humains</span></span></div><div class="kpi-value" style="color:#eee" id="vch">—</div><div class="kpi-pct" id="pch">–</div></div>
+    <div class="kpi" style="border-top-color:#e879f9"><div class="kpi-label"><span class="tip">Dép. diverses<i class="tip-icon">i</i><span class="tip-box">Dépenses ponctuelles (pub, outils, etc.)</span></span></div><div class="kpi-value" style="color:#eee" id="val">—</div><div class="kpi-pct" id="pal">–</div></div>
+    <div class="kpi" style="border-top-color:#f87171"><div class="kpi-label"><span class="tip">Dép. totales<i class="tip-icon">i</i><span class="tip-box">VA + Modèle + Chat IA + Chat Humain + Aléatoires</span></span></div><div class="kpi-value" style="color:#f87171" id="vdep">—</div><span class="kpi-delta" id="dvdep" title="vs période précédente"></span><div class="kpi-pct" id="pdep">–</div></div>
+  </div>
   <div class="g2">
     <div class="panel"><div class="panel-title">Répartition du net</div><div class="panel-sub">sur ce que tu touches réellement</div><div id="bars"><div class="emsg">Entre des données ci-dessus</div></div><div style="position:relative;height:140px;margin-top:10px;display:none" id="pie-wrap"><canvas id="chpie"></canvas></div></div>
     <div class="panel"><div class="panel-title">Évolution du profit</div><div class="panel-sub">par entrée enregistrée</div><div style="position:relative;height:160px"><canvas id="chp"></canvas></div></div>
   </div>
-  <div class="panel" style="margin-top:12px">
+  <div class="panel" id="exp-recap-panel" style="margin-top:12px">
     <div class="panel-title">📊 Récap des dépenses</div><div class="panel-sub">qui a payé quoi · sur la période choisie</div>
     <div id="exp-recap" style="margin-top:12px"><div class="emsg">Aucune dépense sur la période</div></div>
   </div>
-  <div class="panel" style="margin-top:12px">
+  <div class="kpi-sec">PROJECTION</div>
+  <div id="forecast-card" style="display:none;background:#1a1a1a;border-radius:10px;border:0.5px solid #2a2a2a;padding:16px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px"><span class="tip">Prévision fin de mois<i class="tip-icon">i</i><span class="tip-box">Projection basée sur la moyenne journalière actuelle</span></span></div>
+        <div style="font-size:26px;font-weight:500;color:#60a5fa" id="forecast-val">—</div>
+        <div style="font-size:11px;color:#555;margin-top:4px" id="forecast-sub">–</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Objectif mensuel</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="number" id="monthly-goal" placeholder="ex: 20000" oninput="onGoalChange()"
+            style="width:110px;background:#111;border:0.5px solid #333;border-radius:6px;padding:6px 10px;color:#fff;font-size:13px;outline:none;text-align:right">
+          <span style="font-size:12px;color:#555">$</span>
+        </div>
+        <div style="font-size:11px;margin-top:6px" id="forecast-goal-pct">–</div>
+      </div>
+    </div>
+    <div style="margin-top:10px;padding-top:10px;border-top:0.5px solid #222;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:10px;color:#444;white-space:nowrap">🔔 Discord</span>
+      <input id="discord-webhook" type="text" placeholder="https://discord.com/api/webhooks/…" oninput="saveDiscordWebhook()"
+        style="flex:1;min-width:0;background:#111;border:0.5px solid #2a2a2a;border-radius:6px;padding:5px 10px;color:#888;font-size:11px;outline:none">
+      <button onclick="testDiscord()" style="background:#1a1a1a;border:0.5px solid #333;border-radius:6px;padding:5px 10px;color:#666;font-size:11px;cursor:pointer;white-space:nowrap">Tester</button>
+    </div>
+    <div style="margin-top:12px;background:#111;border-radius:6px;height:6px;overflow:hidden">
+      <div id="forecast-bar" style="height:6px;border-radius:6px;background:#60a5fa;width:0%;transition:width .4s"></div>
+    </div>
+    <div id="forecast-goal-detail" style="display:none;margin-top:10px;padding:10px 12px;background:#0e0e0e;border-radius:7px;border:0.5px solid #222">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div id="forecast-rest-goal" style="font-size:12px;color:#ccc"></div>
+        <div id="forecast-date-goal" style="font-size:11px;color:#555"></div>
+      </div>
+      <div style="margin-top:8px;background:#1a1a1a;border-radius:4px;height:10px;overflow:hidden;position:relative">
+        <div id="forecast-bar-actual" style="position:absolute;height:10px;border-radius:4px;background:#4ade80;transition:width .4s;z-index:2"></div>
+        <div id="forecast-bar-proj" style="position:absolute;height:10px;border-radius:4px;background:#60a5fa55;transition:width .4s;z-index:1"></div>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:6px">
+        <span style="font-size:10px;color:#4ade80">● Atteint</span>
+        <span style="font-size:10px;color:#60a5fa">● Projection</span>
+        <span style="font-size:10px;color:#333">● Objectif</span>
+      </div>
+    </div>
+  </div>
+  <div id="day-evolution" style="display:none;border-radius:8px;padding:10px 16px;margin-bottom:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div style="font-size:12px;color:#666" id="day-evo-label">Évolution</div>
+    <div style="font-size:20px;font-weight:500" id="day-evo-value"></div>
+  </div>
+  <div class="kpi-sec">HISTORIQUE</div>
+  <div class="panel" id="hist-panel" style="margin-top:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
       <div><div class="panel-title">Historique</div><div class="panel-sub" id="hsub">toutes les entrées</div></div>
       <input id="hist-search" type="text" placeholder="Rechercher date ou montant…" oninput="rh()" style="background:#111;border:0.5px solid #333;border-radius:6px;padding:5px 10px;color:#ccc;font-size:11px;outline:none;width:180px">
@@ -2723,7 +2721,16 @@ function uk(){
   const f=gf().filter(e=>!(_editingId && e.id===_editingId));
   const _empty=ents.length===0;
   const _es=document.getElementById('empty-state');if(_es)_es.style.display=_empty?'block':'none';
-  document.querySelectorAll('#page-ca .kpi-sec,#page-ca .kpi-hero-grid,#page-ca .kpi-dep-grid').forEach(x=>{x.style.display=_empty?'none':'';});
+  // Compte neuf : on masque TOUT ce qui n a rien a montrer, pas seulement les
+  // cartes. Sinon l ecran d accueil est suivi de 6 cadres << Aucune donnee >>,
+  // ce qui donne l impression d une application cassee des la premiere seconde.
+  // Le formulaire de saisie, lui, reste visible : c est le seul geste possible.
+  document.querySelectorAll('#page-ca .kpi-sec,#page-ca .kpi-hero-grid,#page-ca .kpi-dep-grid,'
+    +'#insights-banner,#advances-panel,#virements-panel,#rapprochement-panel,'
+    +'#model-share-panel,#forecast-card,#day-evolution,#page-ca .g2,#exp-recap-panel,#hist-panel'
+  ).forEach(x=>{ if(x) x.style.display=_empty?'none':''; });
+  // le titre SAISIE doit rester, il annonce le formulaire
+  document.querySelectorAll('#page-ca .kpi-sec').forEach(x=>{ if(x.textContent.trim()==='SAISIE') x.style.display=''; });
   const br=f.reduce((s,e)=>s+(e.brut||0),0)+gv('ib');
   const va=f.reduce((s,e)=>s+(e.va||0),0)+totLP('va');
   const mo=f.reduce((s,e)=>s+(e.mo||0),0)+totLP('mo');
