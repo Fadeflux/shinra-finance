@@ -7,10 +7,10 @@
 // 13/09 en corrigeant le centre de contrôle, rattrapé avant publication.
 //
 // Et une garde `typeof X === 'function'` sur un nom qui n'existe nulle part évite
-// l'erreur… en cachant que la fonctionnalité ne tourne JAMAIS. Vu le 13/09 : ce
-// site appelait, après avoir fusionné des virements, une fonction de dessin qui
-// n'existait pas ici — la liste n'était pas redessinée et les boutons ✕
-// visaient de mauvaises lignes.
+// l'erreur… en cachant que la fonctionnalité ne tourne JAMAIS. Vu le 13/09 : un
+// site appelait, après avoir fusionné des virements, une fonction de dessin qu'il
+// n'avait pas — la liste n'était pas redessinée et les boutons ✕ visaient de
+// mauvaises lignes.
 //
 //     node test_page_compile.js [autre/index.html]
 
@@ -20,7 +20,7 @@ const path = require('path');
 const { Script } = require('vm');
 
 const PAGE = process.argv[2] || path.join(__dirname, 'index.html');
-const SRC = fs.readFileSync(PAGE, 'utf8');
+const SRC = fs.readFileSync(PAGE, 'utf8').replace(/\r\n/g, '\n');
 
 let ko = 0;
 function V(titre, cond, detail = '') {
@@ -45,7 +45,8 @@ console.log('\n-- aucune garde typeof vers un nom qui n’existe nulle part --')
   const NAVIGATEUR = new Set(['window', 'document', 'navigator', 'Notification', 'structuredClone', 'requestIdleCallback',
     'IntersectionObserver', 'ResizeObserver', 'BroadcastChannel', 'AbortController', 'fetch', 'Chart', 'supabase',
     'queueMicrotask', 'crypto', 'caches', 'PushManager', 'ClipboardItem', 'matchMedia', 'requestAnimationFrame']);
-  // Gardes VOULUES, justifiées une par une (aucune aujourd'hui).
+  // Gardes VOULUES, justifiées une par une (aucune aujourd'hui : les deux
+  // fonctions de dessin appelées sous garde existent toutes les deux ici).
   const TOLERES = {};
   const morts = [];
   const re = /typeof\s+([A-Za-z_$][\w$]*)\s*===?\s*['"]function['"]/g;
