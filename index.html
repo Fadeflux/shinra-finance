@@ -269,6 +269,8 @@ body.light #login-input{background:#f5f5f5;border-color:#ddd;color:#111}
 /* Model cards */
 .modcard{background:#111;border-radius:8px;border:1px solid #242428;border-top:2px solid #242428;padding:14px;margin-bottom:8px;transition:transform .15s,border-color .15s,box-shadow .15s}
 .modcard:hover{border-color:#2a2a2a;transform:translateY(-3px);box-shadow:0 10px 26px -12px rgba(0,0,0,.7)}
+.lp-date{width:132px;flex-shrink:0;color-scheme:dark;font-size:11px;padding-left:7px;padding-right:4px}
+@media(max-width:560px){.lp-date{width:118px}}
 .pb-btn{background:#1a2030;border:0.5px solid #60a5fa;border-radius:5px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;color:#60a5fa;font-family:'Inter',system-ui,sans-serif}
 .pb-btn.assoc{background:#221a2d;border-color:#e879f9;color:#e879f9}
 /* Quick-add Ctrl+K modal */
@@ -655,9 +657,23 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
       <datalist id="mo-names"></datalist>
       <button class="abtn" onclick="addLP('mo')">+ Ajouter un versement</button>
     </div>
-    <div class="ig2" style="margin-bottom:10px">
-      <div><div class="ilbl"><span class="idot" style="background:#22d3ee"></span>Chatting IA ($)</div><div style="display:flex;gap:6px"><input class="ifield" style="flex:1" type="number" id="ici" placeholder="ex: 150" oninput="uk()"><button class="pb-btn" id="pb-ici" data-pb="moi" onclick="tpb(this);uk()" type="button">Moi</button></div></div>
-      <div><div class="ilbl"><span class="idot" style="background:#fb923c"></span>Chatting Humain ($)</div><div style="display:flex;gap:6px"><input class="ifield" style="flex:1" type="number" id="ich" placeholder="ex: 200" oninput="uk()" onkeydown="if(event.key==='Enter')se()"><button class="pb-btn" id="pb-ich" data-pb="moi" onclick="tpb(this);uk()" type="button">Moi</button></div></div>
+    <div style="margin-bottom:10px">
+      <div class="ilbl" style="display:flex;justify-content:space-between;align-items:center">
+        <span><span class="idot" style="background:#22d3ee"></span>Chatting IA ($)</span>
+        <span id="tot-ci" style="color:#22d3ee;font-weight:600">—</span>
+      </div>
+      <div id="ciinps"></div>
+      <datalist id="ci-names"></datalist>
+      <button class="abtn" onclick="addLP('ci')">+ Ajouter un versement</button>
+    </div>
+    <div style="margin-bottom:10px">
+      <div class="ilbl" style="display:flex;justify-content:space-between;align-items:center">
+        <span><span class="idot" style="background:#fb923c"></span>Chatting Humain ($)</span>
+        <span id="tot-ch" style="color:#fb923c;font-weight:600">—</span>
+      </div>
+      <div id="chinps"></div>
+      <datalist id="ch-names"></datalist>
+      <button class="abtn" onclick="addLP('ch')">+ Ajouter un versement</button>
     </div>
     <div class="sdiv"><span class="sdot" style="background:#e879f9"></span><span style="color:#e879f9">Dépenses aléatoires</span></div>
     <div id="ainps"></div>
@@ -669,7 +685,6 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
     <div style="margin-top:10px">
       <div class="ilbl" style="display:flex;justify-content:space-between;align-items:center">
         <span>Notes (optionnel)</span>
-        <button onclick="saveDefaultPayers()" style="background:none;border:none;color:#444;font-size:10px;cursor:pointer;padding:0;font-family:'Inter',system-ui,sans-serif" title="Sauvegarder Moi/Asso. actuels comme défaut" onmouseover="this.style.color='#888'" onmouseout="this.style.color='#444'">💾 Sauver payeurs par défaut</button>
       </div>
       <textarea class="ifield" id="entry-notes" placeholder="Ex: bonne période, pub bien performé…" rows="2" style="resize:vertical;line-height:1.5"></textarea>
     </div>
@@ -1232,8 +1247,7 @@ function getGlobalBalance(){
     if(cutoff && e.date>cutoff) return;
     const pb=e.paidBy||{};
     // VA et Modele peuvent avoir un detail ligne par ligne (chacune son payeur).
-    ['va','mo'].forEach(k=>{const r=avancesLigne(e,k); myAdv+=r.moi; assocAdv+=r.asso;});
-    ['ci','ch'].forEach(k=>{const amt=e[k]||0;if(pb[k]==='associe')assocAdv+=amt;else myAdv+=amt;});
+    ['va','mo','ci','ch'].forEach(k=>{const r=avancesLigne(e,k); myAdv+=r.moi; assocAdv+=r.asso;});
     (e.alI||[]).forEach(ai=>{if(ai.paidBy==='associe')assocAdv+=ai.val;else myAdv+=ai.val;});
     totalProfit+=(e.profit||0);
   });
@@ -1656,13 +1670,19 @@ function gat(){return afs.reduce((s,id)=>s+(parseFloat(document.getElementById('
 // (ex : le virement du 15 et celui du 30). Le TOTAL reste stocke dans e.va / e.mo
 // exactement comme avant -- tout le reste de l application continue de marcher --
 // et le detail part dans e.vaI / e.moI (colonnes va_items / mo_items).
-const _LP = { va:{c:'vainps', ids:[], seq:0}, mo:{c:'moinps', ids:[], seq:0} };
-function addLP(k, n='', v='', pb='moi'){
+const _LP = { va:{c:'vainps', ids:[], seq:0}, mo:{c:'moinps', ids:[], seq:0},
+              ci:{c:'ciinps', ids:[], seq:0}, ch:{c:'chinps', ids:[], seq:0} };
+const _LP_PH = { va:'Ex: virement du 15', mo:'Ex: virement du 30', ci:'Ex: abonnement OnlyChat', ch:'Ex: shift Rae' };
+function addLP(k, n='', v='', pb='moi', dt=''){
   const L=_LP[k]; if(!L) return;
   const id=++L.seq; L.ids.push(id);
   const d=document.createElement('div'); d.className='arow'; d.id='lr-'+k+'-'+id;
   const cls=pb==='associe'?'pb-btn assoc':'pb-btn', txt=pb==='associe'?'Asso.':'Moi';
-  d.innerHTML='<input class="ifield" style="flex:1" type="text" id="ln-'+k+'-'+id+'" placeholder="Ex: virement du 15" value="'+esc(n)+'" list="'+k+'-names" autocomplete="off" oninput="uk()">'
+  // Chaque versement porte SA date : on sait ainsi quand chaque virement est parti,
+  // meme si l entree regroupe tout un mois. Par defaut = la date de l entree.
+  const dte = dt || (document.getElementById('entry-date-input')?.value || ts());
+  d.innerHTML='<input class="ifield lp-date" type="date" id="ld-'+k+'-'+id+'" value="'+dte+'" title="Date de ce versement" oninput="uk()">'
+    +'<input class="ifield" style="flex:1;min-width:90px" type="text" id="ln-'+k+'-'+id+'" placeholder="'+(_LP_PH[k]||'Libelle')+'" value="'+esc(n)+'" list="'+k+'-names" autocomplete="off" oninput="uk()">'
     +'<input class="ifield" style="width:90px;flex-shrink:0" type="number" id="lv-'+k+'-'+id+'" placeholder="$" value="'+v+'" oninput="uk()">'
     +'<button class="'+cls+'" data-pb="'+pb+'" onclick="tpb(this);uk()" type="button">'+txt+'</button>'
     +'<button class="arm" onclick="rmLP(&#39;'+k+'&#39;,'+id+')">×</button>';
@@ -1673,18 +1693,20 @@ function totLP(k){ const L=_LP[k]; if(!L) return 0; return L.ids.reduce((s,id)=>
 function itemsLP(k){ const L=_LP[k]; if(!L) return [];
   return L.ids.map(id=>({name:(document.getElementById('ln-'+k+'-'+id)?.value||'').trim()||'Versement',
                          val:parseFloat(document.getElementById('lv-'+k+'-'+id)?.value)||0,
+                         date:document.getElementById('ld-'+k+'-'+id)?.value||'',
                          paidBy:document.getElementById('lr-'+k+'-'+id)?.querySelector('[data-pb]')?.dataset.pb||'moi'})).filter(i=>i.val>0); }
 function razLP(k){ const L=_LP[k]; if(!L) return; const c=document.getElementById(L.c); if(c)c.innerHTML=''; L.ids=[]; L.seq=0; }
 // Remplit la liste depuis une entree existante. Compatibilite : une ancienne entree
 // n a pas de detail -> on cree UNE ligne avec le total et son payeur. Rien n est perdu.
-function chargeLP(k, items, total, payeur){
+function chargeLP(k, items, total, payeur, dateDefaut){
   razLP(k);
-  const lst=(items&&items.length)?items:((total>0)?[{name:(k==='va'?'Paiement VA':'Paiement Modele'),val:total,paidBy:payeur||'moi'}]:[]);
-  lst.forEach(x=>addLP(k, x.name, x.val, x.paidBy||'moi'));
+  const _def={va:'Paiement VA',mo:'Paiement Modele',ci:'Chatting IA',ch:'Chatting Humain'};
+  const lst=(items&&items.length)?items:((total>0)?[{name:_def[k]||'Versement',val:total,paidBy:payeur||'moi'}]:[]);
+  lst.forEach(x=>addLP(k, x.name, x.val, x.paidBy||'moi', x.date||dateDefaut||''));
 }
 // Avances par payeur pour une entree, en tenant compte du detail quand il existe.
 function avancesLigne(e, k){
-  const det=(k==='va')?(e.vaI||[]):(e.moI||[]);
+  const det=({va:e.vaI,mo:e.moI,ci:e.ciI,ch:e.chI}[k])||[];
   if(det.length){ let m=0,a=0; det.forEach(x=>{ if(x.paidBy==='associe') a+=(x.val||0); else m+=(x.val||0); }); return {moi:m,asso:a}; }
   const amt=e[k]||0, pb=(e.paidBy||{})[k];
   return pb==='associe' ? {moi:0,asso:amt} : {moi:amt,asso:0};
@@ -1758,7 +1780,7 @@ function renderEntryWarnings(){
   const box=document.getElementById('entry-warnings'); if(!box) return;
   const w=[];
   const br=gv('ib'), tg=(typeof gv==='function'&&document.getElementById('itg'))?gv('itg'):0;
-  const va=totLP('va'), mo=totLP('mo'), ci=gv('ici'), ch=gv('ich');
+  const va=totLP('va'), mo=totLP('mo'), ci=totLP('ci'), ch=totLP('ch');
   const items=gai(), alT=gat();
   const date=document.getElementById('entry-date-input')?.value||'';
   const saisieEnCours = br>0||tg>0||va>0||mo>0||ci>0||ch>0||alT>0;
@@ -2313,8 +2335,8 @@ function uk(){
   const br=f.reduce((s,e)=>s+(e.brut||0),0)+gv('ib');
   const va=f.reduce((s,e)=>s+(e.va||0),0)+totLP('va');
   const mo=f.reduce((s,e)=>s+(e.mo||0),0)+totLP('mo');
-  const ci=f.reduce((s,e)=>s+(e.ci||0),0)+gv('ici');
-  const ch=f.reduce((s,e)=>s+(e.ch||0),0)+gv('ich');
+  const ci=f.reduce((s,e)=>s+(e.ci||0),0)+totLP('ci');
+  const ch=f.reduce((s,e)=>s+(e.ch||0),0)+totLP('ch');
   const al=f.reduce((s,e)=>s+(e.alT||0),0)+gat();
   const ac=f.reduce((s,e)=>s+(e.alI?e.alI.length:0),0)+gai().length;
   const of=br*.22,net=br*.78,dep=va+mo+ci+ch+al,pr=net-dep;
@@ -2336,10 +2358,10 @@ function uk(){
   (function(){
     // ATTENTION : afficher le total des LIGNES DU FORMULAIRE (totLP), surtout pas
     // les variables va/mo de uk() qui incluent deja les entrees de la periode.
-    [['va',totLP('va')],['mo',totLP('mo')]].forEach(([k,t])=>{
+    [['va',totLP('va')],['mo',totLP('mo')],['ci',totLP('ci')],['ch',totLP('ch')]].forEach(([k,t])=>{
       const el=document.getElementById('tot-'+k); if(el) el.textContent = t>0 ? fmtC(t) : '—';
       const dl=document.getElementById(k+'-names');
-      if(dl){ const vus={}; (ents||[]).forEach(e=>((k==='va'?e.vaI:e.moI)||[]).forEach(x=>{const n=String(x.name||'').trim(); if(n) vus[n]=(vus[n]||0)+1;}));
+      if(dl){ const vus={}; (ents||[]).forEach(e=>(({va:e.vaI,mo:e.moI,ci:e.ciI,ch:e.chI}[k])||[]).forEach(x=>{const n=String(x.name||'').trim(); if(n) vus[n]=(vus[n]||0)+1;}));
         dl.innerHTML=Object.keys(vus).sort((a,b)=>vus[b]-vus[a]).slice(0,40).map(n=>'<option value="'+esc(n)+'"></option>').join(''); }
     });
   })();
@@ -2358,9 +2380,7 @@ function uk(){
     (e.alI||[]).forEach(ai=>{if(ai.paidBy==='associe')assocAdv+=(ai.val||0);else myAdv+=(ai.val||0);});
   });
   // Chaque versement a son propre payeur : on additionne ligne par ligne.
-  itemsLP('va').concat(itemsLP('mo')).forEach(x=>{ if(x.paidBy==='associe') assocAdv+=x.val; else myAdv+=x.val; });
-  if(gpb('pb-ici')==='associe')assocAdv+=gv('ici');else myAdv+=gv('ici');
-  if(gpb('pb-ich')==='associe')assocAdv+=gv('ich');else myAdv+=gv('ich');
+  ['va','mo','ci','ch'].forEach(k=>itemsLP(k).forEach(x=>{ if(x.paidBy==='associe') assocAdv+=x.val; else myAdv+=x.val; }));
   curAlI.forEach(ai=>{if(ai.paidBy==='associe')assocAdv+=ai.val;else myAdv+=ai.val;});
   const advPanel=document.getElementById('advances-panel');
   if(advPanel&&(myAdv>0||assocAdv>0)){
@@ -2466,10 +2486,12 @@ function rh(){
     const notesHtml=e.notes?`<div style="font-size:10px;color:#555;margin-top:3px;font-style:italic">💬 ${esc(e.notes)}</div>`:'';
     // Detail des versements VA / Modele : affiche des qu il y a 2 lignes ou plus
     // (ex : le virement du 15 ET celui du 30).
-    const _vers=[['va','VA','#facc15'],['mo','Modèle','#a78bfa']].map(function(t){
-      const l=(t[0]==='va'?e.vaI:e.moI)||[];
+    const _vers=[['va','VA','#facc15'],['mo','Modèle','#a78bfa'],['ci','Chat IA','#22d3ee'],['ch','Chat Hum.','#fb923c']].map(function(t){
+      const l=({va:e.vaI,mo:e.moI,ci:e.ciI,ch:e.chI}[t[0]])||[];
       if(l.length<2) return '';
-      return '<span style="color:'+t[2]+'">'+t[1]+' :</span> '+l.map(function(x){return esc(x.name)+' '+fmtC(x.val);}).join(' + ');
+      return '<span style="color:'+t[2]+'">'+t[1]+' :</span> '+l.map(function(x){
+        const d=(x.date && x.date!==e.date) ? ' <span style="color:#4a4a52">('+dl(x.date)+')</span>' : '';
+        return esc(x.name)+d+' '+fmtC(x.val);}).join(' + ');
     }).filter(Boolean);
     const versHtml=_vers.length?'<div style="font-size:10.5px;color:#5a5a62;margin-top:3px;line-height:1.6">'+_vers.join(' &nbsp;·&nbsp; ')+'</div>':'';
     return `<div class="txrow"><div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0"><span class="txdb">${dl(e.date)}</span>${e.author?`<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#1a1a1e;color:#8a8a90;border:0.5px solid #2a2a2a;margin-left:4px">${e.author}</span>`:''}<div><div style="font-size:13px;color:#bbb">CA ${fmtR(e.brut)}</div><div style="font-size:11px;color:#444;margin-top:2px;line-height:1.7"><span style="color:#facc15">VA ${fmtR(e.va)}${pbTag(e.va,'va')}</span> · <span style="color:#a78bfa">Modèle ${fmtR(e.mo)}${pbTag(e.mo,'mo')}</span> · <span style="color:#22d3ee">Chat IA ${fmtR(e.ci)}${pbTag(e.ci,'ci')}</span> · <span style="color:#fb923c">Chat Hum. ${fmtR(e.ch)}${pbTag(e.ch,'ch')}</span></div>${versHtml}${miscHtml}${notesHtml}</div></div><div style="display:flex;align-items:center;gap:8px"><div style="text-align:right"><div style="font-size:13px;font-weight:500;color:${e.profit>=0?'#4ade80':'#f87171'}">${e.profit>=0?'+':''}${fmtS(e.profit)}</div><div style="font-size:10px;color:#444;margin-top:2px">${mg}% marge</div></div><div class="row-actions"><button onclick="window.quickNote(${ri})" title="${e.notes?'Note (cliquer pour éditer)':'Ajouter une note partagée'}" style="color:${e.notes?'#4ade80':'#444'}">💬</button><button onclick="window.editEntry(${ri})" title="Modifier" style="color:#facc15">✏</button><button onclick="window.duplicateEntry(${ri})" title="Dupliquer" style="color:#60a5fa">⎘</button><button onclick="deleteEntry(${ri})" title="Supprimer" style="color:#444">✕</button></div></div></div>`;
@@ -3065,8 +3087,8 @@ if (typeof window.Chart === 'undefined') {
   window.Chart = function(){ return { destroy:function(){}, update:function(){}, resize:function(){}, data:{}, options:{} }; };
   window.Chart.defaults = { font:{}, plugins:{} };
 }
-function entryFromDb(r){ return { id:r.id, date:r.date, brut:+r.brut, va:+r.va, mo:+r.mo, ci:+r.ci, ch:+r.ch, alT:+r.al_total, alI:r.al_items||[], vaI:r.va_items||[], moI:r.mo_items||[], profit:+r.profit, paidBy:r.paid_by||{}, notes:r.notes||'', author:r.author||'' }; }
-function entryToDb(e){ return { date:e.date, brut:e.brut||0, va:e.va||0, mo:e.mo||0, ci:e.ci||0, ch:e.ch||0, al_total:(e.alT!=null?e.alT:0), al_items:e.alI||[], va_items:e.vaI||[], mo_items:e.moI||[], profit:e.profit||0, paid_by:e.paidBy||{}, notes:e.notes||null, author:e.author||null }; }
+function entryFromDb(r){ return { id:r.id, date:r.date, brut:+r.brut, va:+r.va, mo:+r.mo, ci:+r.ci, ch:+r.ch, alT:+r.al_total, alI:r.al_items||[], vaI:r.va_items||[], moI:r.mo_items||[], ciI:r.ci_items||[], chI:r.ch_items||[], profit:+r.profit, paidBy:r.paid_by||{}, notes:r.notes||'', author:r.author||'' }; }
+function entryToDb(e){ return { date:e.date, brut:e.brut||0, va:e.va||0, mo:e.mo||0, ci:e.ci||0, ch:e.ch||0, al_total:(e.alT!=null?e.alT:0), al_items:e.alI||[], va_items:e.vaI||[], mo_items:e.moI||[], ci_items:e.ciI||[], ch_items:e.chI||[], profit:e.profit||0, paid_by:e.paidBy||{}, notes:e.notes||null, author:e.author||null }; }
 function vaFromDb(v){ return { _db_id:v.id, name:v.name, cat:v.cat, subs:v.subs, ca:+v.ca, net:+v.net, rate:+v.rate, bon:+v.bon, mal:+v.mal, pay:+v.pay, ltv:+v.ltv, ltvNet:+v.ltv_net, profit:+v.profit, pps:+v.pps, currentPeriod:v.current_period, wallet_address:v.wallet_address, last_paid_amount:v.last_paid_amount!=null?+v.last_paid_amount:0, last_paid_date:v.last_paid_date, total_paid:v.total_paid!=null?+v.total_paid:0, history:[], periods:[] }; }
 function vaToDb(v){ return { name:v.name, cat:v.cat||'Autre', subs:v.subs||0, ca:v.ca||0, net:v.net||0, rate:(v.rate!=null?v.rate:0.5), bon:v.bon||0, mal:v.mal||0, pay:v.pay||0, ltv:v.ltv||0, ltv_net:v.ltvNet||0, profit:v.profit||0, pps:v.pps||0, current_period:v.currentPeriod||null }; }
 
@@ -3455,8 +3477,7 @@ function getMonthlyRecap() {
     map[key].count++;
     map[key].margin=map[key].net>0?map[key].profit/map[key].net*100:0;
     const epb=e.paidBy||{};
-    ['va','mo'].forEach(k=>{const r=avancesLigne(e,k); map[key].myAdv+=r.moi; map[key].assocAdv+=r.asso;});
-    ['ci','ch'].forEach(k=>{const amt=e[k]||0;if(epb[k]==='associe')map[key].assocAdv+=amt;else map[key].myAdv+=amt;});
+    ['va','mo','ci','ch'].forEach(k=>{const r=avancesLigne(e,k); map[key].myAdv+=r.moi; map[key].assocAdv+=r.asso;});
     (e.alI||[]).forEach(ai=>{if(ai.paidBy==='associe')map[key].assocAdv+=(ai.val||0);else map[key].myAdv+=(ai.val||0);});
   });
   return Object.values(map).sort((a,b) => b.key.localeCompare(a.key));
@@ -3747,18 +3768,18 @@ function se() {
   const br=gv('ib'); if(!br){flashMsg('se-msg','⚠ Entre au moins un CA Brut','#f87171');const _ib=document.getElementById('ib');if(_ib)_ib.focus();return;}
   const wasEdit=!!_editingId;
   const _oldK={vpr:_kpiNum('vpr'),vb:_kpiNum('vb'),vn:_kpiNum('vn')};
-  const va=totLP('va'),mo=totLP('mo'),ci=gv('ici'),ch=gv('ich');
+  const va=totLP('va'),mo=totLP('mo'),ci=totLP('ci'),ch=totLP('ch');
   const alI=gai(),alT=alI.reduce((s,i)=>s+i.val,0);
   const dateInput=document.getElementById('entry-date-input')?.value;
   const date=dateInput||acd||ts();
   const profit=Math.round(br*.78-va-mo-ci-ch-alT);
-  const _vaI=itemsLP('va'), _moI=itemsLP('mo');
+  const _vaI=itemsLP('va'), _moI=itemsLP('mo'), _ciI=itemsLP('ci'), _chI=itemsLP('ch');
   // paidBy reste ecrit pour rester compatible avec tout le code existant :
   // on y met le payeur MAJORITAIRE des lignes. Le detail fait foi (vaI/moI).
   const _domin=(l)=>{let m=0,a=0;l.forEach(x=>{if(x.paidBy==='associe')a+=x.val;else m+=x.val;});return a>m?'associe':'moi';};
-  const paidBy={va:_domin(_vaI),mo:_domin(_moI),ci:gpb('pb-ici'),ch:gpb('pb-ich')};
+  const paidBy={va:_domin(_vaI),mo:_domin(_moI),ci:_domin(_ciI),ch:_domin(_chI)};
   const notes=document.getElementById('entry-notes')?.value.trim()||'';
-  const entry={date,brut:br,va,mo,ci,ch,alI,alT,vaI:_vaI,moI:_moI,profit,paidBy,notes,author:_currentUser};
+  const entry={date,brut:br,va,mo,ci,ch,alI,alT,vaI:_vaI,moI:_moI,ciI:_ciI,chI:_chI,profit,paidBy,notes,author:_currentUser};
   const goal=parseFloat(document.getElementById('monthly-goal')?.value)||0;
   const now=ts().slice(0,7);
   const profitBefore=ents.filter(e=>e.date.slice(0,7)===now).reduce((s,e)=>s+e.profit,0);
@@ -3778,7 +3799,7 @@ function se() {
   }
   const profitAfter=ents.filter(e=>e.date.slice(0,7)===now).reduce((s,e)=>s+e.profit,0);
   checkGoalReached(profitBefore, profitAfter, goal);
-  ['ib','ici','ich'].forEach(id=>document.getElementById(id).value='');razLP('va');razLP('mo');
+  ['ib'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});razLP('va');razLP('mo');razLP('ci');razLP('ch');
   document.getElementById('entry-date-input').value=ts();
   document.getElementById('edlbl').textContent="Entrée pour aujourd'hui — change la date si besoin";
   document.getElementById('ainps').innerHTML='';afs=[];afc=0;
@@ -3804,8 +3825,7 @@ function cancelEdit(){
   document.getElementById('edit-banner').style.display='none';
   document.getElementById('sbtn-text').textContent='+ Enregistrer cette entrée';
   document.getElementById('entry-date-input').value=ts();
-  ['ib','ici','ich'].forEach(id=>document.getElementById(id).value='');razLP('va');razLP('mo');
-  ['pb-iv','pb-im','pb-ici','pb-ich'].forEach(id=>spb(id,'moi'));
+  ['ib'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});razLP('va');razLP('mo');razLP('ci');razLP('ch');
   document.getElementById('ainps').innerHTML='';afs=[];afc=0;
   const en=document.getElementById('entry-notes');if(en)en.value='';
   document.getElementById('edlbl').textContent="Entrée pour aujourd'hui — change la date si besoin";
@@ -3820,10 +3840,10 @@ window.editEntry = function(idx){
   _editingId=entry.id;
   document.getElementById('ib').value=entry.brut;
   const _pbE=entry.paidBy||{};
-  chargeLP('va', entry.vaI, entry.va, _pbE.va);
-  chargeLP('mo', entry.moI, entry.mo, _pbE.mo);
-  document.getElementById('ici').value=entry.ci;
-  document.getElementById('ich').value=entry.ch;
+  chargeLP('va', entry.vaI, entry.va, _pbE.va, entry.date);
+  chargeLP('mo', entry.moI, entry.mo, _pbE.mo, entry.date);
+  chargeLP('ci', entry.ciI, entry.ci, _pbE.ci, entry.date);
+  chargeLP('ch', entry.chI, entry.ch, _pbE.ch, entry.date);
   document.getElementById('entry-date-input').value=entry.date;
   const epb=entry.paidBy||{};
   spb('pb-iv',epb.va||'moi');spb('pb-im',epb.mo||'moi');spb('pb-ici',epb.ci||'moi');spb('pb-ich',epb.ch||'moi');
@@ -3843,10 +3863,10 @@ window.duplicateEntry = function(idx){
   _editingId=null;
   document.getElementById('ib').value=entry.brut;
   const _pbE=entry.paidBy||{};
-  chargeLP('va', entry.vaI, entry.va, _pbE.va);
-  chargeLP('mo', entry.moI, entry.mo, _pbE.mo);
-  document.getElementById('ici').value=entry.ci;
-  document.getElementById('ich').value=entry.ch;
+  chargeLP('va', entry.vaI, entry.va, _pbE.va, entry.date);
+  chargeLP('mo', entry.moI, entry.mo, _pbE.mo, entry.date);
+  chargeLP('ci', entry.ciI, entry.ci, _pbE.ci, entry.date);
+  chargeLP('ch', entry.chI, entry.ch, _pbE.ch, entry.date);
   document.getElementById('entry-date-input').value=ts();
   document.getElementById('ainps').innerHTML='';afs=[];afc=0;
   // Les PAYEURS doivent suivre la copie : sans eux, des avances payées par l'associé
