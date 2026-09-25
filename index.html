@@ -637,9 +637,25 @@ body.readonly #ca-entry-panel,body.readonly .export-dropdown,body.readonly [oncl
     <div class="sdiv">Revenus</div>
     <div><div class="ilbl">CA Brut ($)</div><input class="ifield" type="number" id="ib" placeholder="ex: 3000" oninput="uk()"></div>
     <div class="sdiv"><span class="sdot" style="background:#facc15"></span><span style="color:#facc15">VA</span>&nbsp;&nbsp;<span class="sdot" style="background:#a78bfa"></span><span style="color:#a78bfa">Modèle</span>&nbsp;&nbsp;<span class="sdot" style="background:#22d3ee"></span><span style="color:#22d3ee">Chat IA</span>&nbsp;&nbsp;<span class="sdot" style="background:#fb923c"></span><span style="color:#fb923c">Chat Humain</span></div>
+    <div style="margin-bottom:10px">
+      <div class="ilbl" style="display:flex;justify-content:space-between;align-items:center">
+        <span><span class="idot" style="background:#facc15"></span>Paiements VA ($)</span>
+        <span id="tot-va" style="color:#facc15;font-weight:600">—</span>
+      </div>
+      <div id="vainps"></div>
+      <datalist id="va-names"></datalist>
+      <button class="abtn" onclick="addLP('va')">+ Ajouter un versement</button>
+    </div>
+    <div style="margin-bottom:10px">
+      <div class="ilbl" style="display:flex;justify-content:space-between;align-items:center">
+        <span><span class="idot" style="background:#a78bfa"></span>Paiements Modèle ($)</span>
+        <span id="tot-mo" style="color:#a78bfa;font-weight:600">—</span>
+      </div>
+      <div id="moinps"></div>
+      <datalist id="mo-names"></datalist>
+      <button class="abtn" onclick="addLP('mo')">+ Ajouter un versement</button>
+    </div>
     <div class="ig2" style="margin-bottom:10px">
-      <div><div class="ilbl"><span class="idot" style="background:#facc15"></span>Paiement VA ($)</div><div style="display:flex;gap:6px"><input class="ifield" style="flex:1" type="number" id="iv" placeholder="ex: 300" oninput="uk()"><button class="pb-btn" id="pb-iv" data-pb="moi" onclick="tpb(this);uk()" type="button">Moi</button></div></div>
-      <div><div class="ilbl"><span class="idot" style="background:#a78bfa"></span>Paiement Modèle ($)</div><div style="display:flex;gap:6px"><input class="ifield" style="flex:1" type="number" id="im" placeholder="ex: 600" oninput="uk()"><button class="pb-btn" id="pb-im" data-pb="moi" onclick="tpb(this);uk()" type="button">Moi</button></div></div>
       <div><div class="ilbl"><span class="idot" style="background:#22d3ee"></span>Chatting IA ($)</div><div style="display:flex;gap:6px"><input class="ifield" style="flex:1" type="number" id="ici" placeholder="ex: 150" oninput="uk()"><button class="pb-btn" id="pb-ici" data-pb="moi" onclick="tpb(this);uk()" type="button">Moi</button></div></div>
       <div><div class="ilbl"><span class="idot" style="background:#fb923c"></span>Chatting Humain ($)</div><div style="display:flex;gap:6px"><input class="ifield" style="flex:1" type="number" id="ich" placeholder="ex: 200" oninput="uk()" onkeydown="if(event.key==='Enter')se()"><button class="pb-btn" id="pb-ich" data-pb="moi" onclick="tpb(this);uk()" type="button">Moi</button></div></div>
     </div>
@@ -1210,7 +1226,9 @@ function getGlobalBalance(){
   ents.forEach(e=>{
     if(cutoff && e.date>cutoff) return;
     const pb=e.paidBy||{};
-    ['va','mo','ci','ch'].forEach(k=>{const amt=e[k]||0;if(pb[k]==='associe')assocAdv+=amt;else myAdv+=amt;});
+    // VA et Modele peuvent avoir un detail ligne par ligne (chacune son payeur).
+    ['va','mo'].forEach(k=>{const r=avancesLigne(e,k); myAdv+=r.moi; assocAdv+=r.asso;});
+    ['ci','ch'].forEach(k=>{const amt=e[k]||0;if(pb[k]==='associe')assocAdv+=amt;else myAdv+=amt;});
     (e.alI||[]).forEach(ai=>{if(ai.paidBy==='associe')assocAdv+=ai.val;else myAdv+=ai.val;});
     totalProfit+=(e.profit||0);
   });
@@ -1628,6 +1646,44 @@ function verifierMontants(ids){
 function addAF(n='',v='',pb='moi'){const id=++afc;afs.push(id);const d=document.createElement('div');d.className='arow';d.id='ar-'+id;const cls=pb==='associe'?'pb-btn assoc':'pb-btn';const txt=pb==='associe'?'Asso.':'Moi';d.innerHTML=`<input class="ifield" style="flex:1" type="text" id="an-${id}" placeholder="Nom (ex: pub Meta)" value="${esc(n)}" list="dep-names" autocomplete="off" oninput="uk()"><input class="ifield" style="width:90px;flex-shrink:0" type="number" id="av-${id}" placeholder="$" value="${v}" oninput="uk()"><button class="${cls}" data-pb="${pb}" onclick="tpb(this);uk()" type="button">${txt}</button><button class="arm" onclick="ra(${id})">×</button>`;document.getElementById('ainps').appendChild(d);}
 function ra(id){const r=document.getElementById('ar-'+id);if(r)r.remove();afs=afs.filter(f=>f!==id);uk();}
 function gat(){return afs.reduce((s,id)=>s+(parseFloat(document.getElementById('av-'+id)?.value)||0),0);}
+// ---- Listes de versements (Paiement VA / Paiement Modele) ----
+// Meme principe que les depenses diverses : plusieurs lignes qui s ADDITIONNENT
+// (ex : le virement du 15 et celui du 30). Le TOTAL reste stocke dans e.va / e.mo
+// exactement comme avant -- tout le reste de l application continue de marcher --
+// et le detail part dans e.vaI / e.moI (colonnes va_items / mo_items).
+const _LP = { va:{c:'vainps', ids:[], seq:0}, mo:{c:'moinps', ids:[], seq:0} };
+function addLP(k, n='', v='', pb='moi'){
+  const L=_LP[k]; if(!L) return;
+  const id=++L.seq; L.ids.push(id);
+  const d=document.createElement('div'); d.className='arow'; d.id='lr-'+k+'-'+id;
+  const cls=pb==='associe'?'pb-btn assoc':'pb-btn', txt=pb==='associe'?'Asso.':'Moi';
+  d.innerHTML='<input class="ifield" style="flex:1" type="text" id="ln-'+k+'-'+id+'" placeholder="Ex: virement du 15" value="'+esc(n)+'" list="'+k+'-names" autocomplete="off" oninput="uk()">'
+    +'<input class="ifield" style="width:90px;flex-shrink:0" type="number" id="lv-'+k+'-'+id+'" placeholder="$" value="'+v+'" oninput="uk()">'
+    +'<button class="'+cls+'" data-pb="'+pb+'" onclick="tpb(this);uk()" type="button">'+txt+'</button>'
+    +'<button class="arm" onclick="rmLP(&#39;'+k+'&#39;,'+id+')">×</button>';
+  const c=document.getElementById(L.c); if(c) c.appendChild(d);
+}
+function rmLP(k,id){ const L=_LP[k]; if(!L) return; const r=document.getElementById('lr-'+k+'-'+id); if(r)r.remove(); L.ids=L.ids.filter(x=>x!==id); uk(); }
+function totLP(k){ const L=_LP[k]; if(!L) return 0; return L.ids.reduce((s,id)=>s+(parseFloat(document.getElementById('lv-'+k+'-'+id)?.value)||0),0); }
+function itemsLP(k){ const L=_LP[k]; if(!L) return [];
+  return L.ids.map(id=>({name:(document.getElementById('ln-'+k+'-'+id)?.value||'').trim()||'Versement',
+                         val:parseFloat(document.getElementById('lv-'+k+'-'+id)?.value)||0,
+                         paidBy:document.getElementById('lr-'+k+'-'+id)?.querySelector('[data-pb]')?.dataset.pb||'moi'})).filter(i=>i.val>0); }
+function razLP(k){ const L=_LP[k]; if(!L) return; const c=document.getElementById(L.c); if(c)c.innerHTML=''; L.ids=[]; L.seq=0; }
+// Remplit la liste depuis une entree existante. Compatibilite : une ancienne entree
+// n a pas de detail -> on cree UNE ligne avec le total et son payeur. Rien n est perdu.
+function chargeLP(k, items, total, payeur){
+  razLP(k);
+  const lst=(items&&items.length)?items:((total>0)?[{name:(k==='va'?'Paiement VA':'Paiement Modele'),val:total,paidBy:payeur||'moi'}]:[]);
+  lst.forEach(x=>addLP(k, x.name, x.val, x.paidBy||'moi'));
+}
+// Avances par payeur pour une entree, en tenant compte du detail quand il existe.
+function avancesLigne(e, k){
+  const det=(k==='va')?(e.vaI||[]):(e.moI||[]);
+  if(det.length){ let m=0,a=0; det.forEach(x=>{ if(x.paidBy==='associe') a+=(x.val||0); else m+=(x.val||0); }); return {moi:m,asso:a}; }
+  const amt=e[k]||0, pb=(e.paidBy||{})[k];
+  return pb==='associe' ? {moi:0,asso:amt} : {moi:amt,asso:0};
+}
 function gai(){return afs.map(id=>({name:document.getElementById('an-'+id)?.value||'Dépense',val:parseFloat(document.getElementById('av-'+id)?.value)||0,paidBy:document.getElementById('ar-'+id)?.querySelector('[data-pb]')?.dataset.pb||'moi'})).filter(i=>i.val>0);}
 const _TAUX=0.78;   // part qui te reste apres commission plateforme
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1697,7 +1753,7 @@ function renderEntryWarnings(){
   const box=document.getElementById('entry-warnings'); if(!box) return;
   const w=[];
   const br=gv('ib'), tg=(typeof gv==='function'&&document.getElementById('itg'))?gv('itg'):0;
-  const va=gv('iv'), mo=gv('im'), ci=gv('ici'), ch=gv('ich');
+  const va=totLP('va'), mo=totLP('mo'), ci=gv('ici'), ch=gv('ich');
   const items=gai(), alT=gat();
   const date=document.getElementById('entry-date-input')?.value||'';
   const saisieEnCours = br>0||tg>0||va>0||mo>0||ci>0||ch>0||alT>0;
@@ -2250,8 +2306,8 @@ function uk(){
   const _es=document.getElementById('empty-state');if(_es)_es.style.display=_empty?'block':'none';
   document.querySelectorAll('#page-ca .kpi-sec,#page-ca .kpi-hero-grid,#page-ca .kpi-dep-grid').forEach(x=>{x.style.display=_empty?'none':'';});
   const br=f.reduce((s,e)=>s+(e.brut||0),0)+gv('ib');
-  const va=f.reduce((s,e)=>s+(e.va||0),0)+gv('iv');
-  const mo=f.reduce((s,e)=>s+(e.mo||0),0)+gv('im');
+  const va=f.reduce((s,e)=>s+(e.va||0),0)+totLP('va');
+  const mo=f.reduce((s,e)=>s+(e.mo||0),0)+totLP('mo');
   const ci=f.reduce((s,e)=>s+(e.ci||0),0)+gv('ici');
   const ch=f.reduce((s,e)=>s+(e.ch||0),0)+gv('ich');
   const al=f.reduce((s,e)=>s+(e.alT||0),0)+gat();
@@ -2271,6 +2327,17 @@ function uk(){
   const _pd=periodDelta();
   if(_pd){setDelta('dvb',_pd.curr.br,_pd.prev.br);setDelta('dvn',_pd.curr.net,_pd.prev.net);setDelta('dvdep',_pd.curr.dep,_pd.prev.dep,true);setDelta('dvpr',_pd.curr.pr,_pd.prev.pr);}
   else{['dvb','dvn','dvdep','dvpr'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});}
+  // Totaux des listes de versements + suggestions de libelles deja utilises.
+  (function(){
+    // ATTENTION : afficher le total des LIGNES DU FORMULAIRE (totLP), surtout pas
+    // les variables va/mo de uk() qui incluent deja les entrees de la periode.
+    [['va',totLP('va')],['mo',totLP('mo')]].forEach(([k,t])=>{
+      const el=document.getElementById('tot-'+k); if(el) el.textContent = t>0 ? fmtR(t) : '—';
+      const dl=document.getElementById(k+'-names');
+      if(dl){ const vus={}; (ents||[]).forEach(e=>((k==='va'?e.vaI:e.moI)||[]).forEach(x=>{const n=String(x.name||'').trim(); if(n) vus[n]=(vus[n]||0)+1;}));
+        dl.innerHTML=Object.keys(vus).sort((a,b)=>vus[b]-vus[a]).slice(0,40).map(n=>'<option value="'+esc(n)+'"></option>').join(''); }
+    });
+  })();
   renderInsights();
   try{renderEntryWarnings();}catch(e){}
   try{majListeDepenses();}catch(e){}
@@ -2285,8 +2352,8 @@ function uk(){
     if(pb.ch==='associe')assocAdv+=(e.ch||0);else myAdv+=(e.ch||0);
     (e.alI||[]).forEach(ai=>{if(ai.paidBy==='associe')assocAdv+=(ai.val||0);else myAdv+=(ai.val||0);});
   });
-  if(gpb('pb-iv')==='associe')assocAdv+=gv('iv');else myAdv+=gv('iv');
-  if(gpb('pb-im')==='associe')assocAdv+=gv('im');else myAdv+=gv('im');
+  // Chaque versement a son propre payeur : on additionne ligne par ligne.
+  itemsLP('va').concat(itemsLP('mo')).forEach(x=>{ if(x.paidBy==='associe') assocAdv+=x.val; else myAdv+=x.val; });
   if(gpb('pb-ici')==='associe')assocAdv+=gv('ici');else myAdv+=gv('ici');
   if(gpb('pb-ich')==='associe')assocAdv+=gv('ich');else myAdv+=gv('ich');
   curAlI.forEach(ai=>{if(ai.paidBy==='associe')assocAdv+=ai.val;else myAdv+=ai.val;});
@@ -2392,7 +2459,15 @@ function rh(){
     const grp=(ttl,arr,tot,col)=>arr.length?`<div style="flex:1;min-width:150px"><div style="font-size:10px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;display:flex;justify-content:space-between"><span>${ttl}</span><span>${fmtR(tot)}</span></div>${arr.slice().sort((a,b)=>(b.val||0)-(a.val||0)).map(x=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:11px;color:#9a9aa0;padding:2px 0;border-bottom:0.5px solid #171719"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</span><b style="color:#ccc;white-space:nowrap">${fmtR(x.val)}</b></div>`).join('')}</div>`:'';
     const miscHtml=alL.length?`<div style="margin-top:6px"><button type="button" onclick="var d=document.getElementById('misc-${ri}');var o=d.style.display==='none';d.style.display=o?'flex':'none';this.querySelector('.cv').textContent=o?'▴':'▾'" style="background:#161619;border:1px solid #26262c;border-radius:7px;padding:5px 11px;color:#aaa;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:8px">🧾 <b style="color:#ddd">${alL.length} dépense${alL.length>1?'s':''} diverse${alL.length>1?'s':''}</b> · <b style="color:#ddd">${fmtR(alTot)}</b>${alMoiT>0?` · <span style="color:#60a5fa">Moi ${fmtR(alMoiT)}</span>`:''}${alAssoT>0?` · <span style="color:#e879f9">Asso ${fmtR(alAssoT)}</span>`:''} <span class="cv" style="color:#666;font-size:10px">▾</span></button><div id="misc-${ri}" style="display:none;gap:22px;flex-wrap:wrap;background:#0e0e0f;border:1px solid #1e1e22;border-radius:8px;padding:11px 14px;margin-top:5px">${grp('Payé par Moi',alMoi,alMoiT,'#60a5fa')}${grp('Payé par Associé',alAsso,alAssoT,'#e879f9')}</div></div>`:'';
     const notesHtml=e.notes?`<div style="font-size:10px;color:#555;margin-top:3px;font-style:italic">💬 ${esc(e.notes)}</div>`:'';
-    return `<div class="txrow"><div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0"><span class="txdb">${dl(e.date)}</span>${e.author?`<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#1a1a1e;color:#8a8a90;border:0.5px solid #2a2a2a;margin-left:4px">${e.author}</span>`:''}<div><div style="font-size:13px;color:#bbb">CA ${fmtR(e.brut)}</div><div style="font-size:11px;color:#444;margin-top:2px;line-height:1.7"><span style="color:#facc15">VA ${fmtR(e.va)}${pbTag(e.va,'va')}</span> · <span style="color:#a78bfa">Modèle ${fmtR(e.mo)}${pbTag(e.mo,'mo')}</span> · <span style="color:#22d3ee">Chat IA ${fmtR(e.ci)}${pbTag(e.ci,'ci')}</span> · <span style="color:#fb923c">Chat Hum. ${fmtR(e.ch)}${pbTag(e.ch,'ch')}</span></div>${miscHtml}${notesHtml}</div></div><div style="display:flex;align-items:center;gap:8px"><div style="text-align:right"><div style="font-size:13px;font-weight:500;color:${e.profit>=0?'#4ade80':'#f87171'}">${e.profit>=0?'+':''}${fmtS(e.profit)}</div><div style="font-size:10px;color:#444;margin-top:2px">${mg}% marge</div></div><div class="row-actions"><button onclick="window.quickNote(${ri})" title="${e.notes?'Note (cliquer pour éditer)':'Ajouter une note partagée'}" style="color:${e.notes?'#4ade80':'#444'}">💬</button><button onclick="window.editEntry(${ri})" title="Modifier" style="color:#facc15">✏</button><button onclick="window.duplicateEntry(${ri})" title="Dupliquer" style="color:#60a5fa">⎘</button><button onclick="deleteEntry(${ri})" title="Supprimer" style="color:#444">✕</button></div></div></div>`;
+    // Detail des versements VA / Modele : affiche des qu il y a 2 lignes ou plus
+    // (ex : le virement du 15 ET celui du 30).
+    const _vers=[['va','VA','#facc15'],['mo','Modèle','#a78bfa']].map(function(t){
+      const l=(t[0]==='va'?e.vaI:e.moI)||[];
+      if(l.length<2) return '';
+      return '<span style="color:'+t[2]+'">'+t[1]+' :</span> '+l.map(function(x){return esc(x.name)+' '+fmtR(x.val);}).join(' + ');
+    }).filter(Boolean);
+    const versHtml=_vers.length?'<div style="font-size:10.5px;color:#5a5a62;margin-top:3px;line-height:1.6">'+_vers.join(' &nbsp;·&nbsp; ')+'</div>':'';
+    return `<div class="txrow"><div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0"><span class="txdb">${dl(e.date)}</span>${e.author?`<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#1a1a1e;color:#8a8a90;border:0.5px solid #2a2a2a;margin-left:4px">${e.author}</span>`:''}<div><div style="font-size:13px;color:#bbb">CA ${fmtR(e.brut)}</div><div style="font-size:11px;color:#444;margin-top:2px;line-height:1.7"><span style="color:#facc15">VA ${fmtR(e.va)}${pbTag(e.va,'va')}</span> · <span style="color:#a78bfa">Modèle ${fmtR(e.mo)}${pbTag(e.mo,'mo')}</span> · <span style="color:#22d3ee">Chat IA ${fmtR(e.ci)}${pbTag(e.ci,'ci')}</span> · <span style="color:#fb923c">Chat Hum. ${fmtR(e.ch)}${pbTag(e.ch,'ch')}</span></div>${versHtml}${miscHtml}${notesHtml}</div></div><div style="display:flex;align-items:center;gap:8px"><div style="text-align:right"><div style="font-size:13px;font-weight:500;color:${e.profit>=0?'#4ade80':'#f87171'}">${e.profit>=0?'+':''}${fmtS(e.profit)}</div><div style="font-size:10px;color:#444;margin-top:2px">${mg}% marge</div></div><div class="row-actions"><button onclick="window.quickNote(${ri})" title="${e.notes?'Note (cliquer pour éditer)':'Ajouter une note partagée'}" style="color:${e.notes?'#4ade80':'#444'}">💬</button><button onclick="window.editEntry(${ri})" title="Modifier" style="color:#facc15">✏</button><button onclick="window.duplicateEntry(${ri})" title="Dupliquer" style="color:#60a5fa">⎘</button><button onclick="deleteEntry(${ri})" title="Supprimer" style="color:#444">✕</button></div></div></div>`;
   }).join('');
   const pg=document.getElementById('hist-pagination');
   pg.innerHTML=totalPages>1?`<button onclick="_histPage=Math.max(0,_histPage-1);rh()" ${_histPage===0?'disabled':''}>‹ Préc.</button><span>${_histPage+1} / ${totalPages}</span><button onclick="_histPage=Math.min(${totalPages-1},_histPage+1);rh()" ${_histPage>=totalPages-1?'disabled':''}>Suiv. ›</button>`:'';
@@ -2985,8 +3060,8 @@ if (typeof window.Chart === 'undefined') {
   window.Chart = function(){ return { destroy:function(){}, update:function(){}, resize:function(){}, data:{}, options:{} }; };
   window.Chart.defaults = { font:{}, plugins:{} };
 }
-function entryFromDb(r){ return { id:r.id, date:r.date, brut:+r.brut, va:+r.va, mo:+r.mo, ci:+r.ci, ch:+r.ch, alT:+r.al_total, alI:r.al_items||[], profit:+r.profit, paidBy:r.paid_by||{}, notes:r.notes||'', author:r.author||'' }; }
-function entryToDb(e){ return { date:e.date, brut:e.brut||0, va:e.va||0, mo:e.mo||0, ci:e.ci||0, ch:e.ch||0, al_total:(e.alT!=null?e.alT:0), al_items:e.alI||[], profit:e.profit||0, paid_by:e.paidBy||{}, notes:e.notes||null, author:e.author||null }; }
+function entryFromDb(r){ return { id:r.id, date:r.date, brut:+r.brut, va:+r.va, mo:+r.mo, ci:+r.ci, ch:+r.ch, alT:+r.al_total, alI:r.al_items||[], vaI:r.va_items||[], moI:r.mo_items||[], profit:+r.profit, paidBy:r.paid_by||{}, notes:r.notes||'', author:r.author||'' }; }
+function entryToDb(e){ return { date:e.date, brut:e.brut||0, va:e.va||0, mo:e.mo||0, ci:e.ci||0, ch:e.ch||0, al_total:(e.alT!=null?e.alT:0), al_items:e.alI||[], va_items:e.vaI||[], mo_items:e.moI||[], profit:e.profit||0, paid_by:e.paidBy||{}, notes:e.notes||null, author:e.author||null }; }
 function vaFromDb(v){ return { _db_id:v.id, name:v.name, cat:v.cat, subs:v.subs, ca:+v.ca, net:+v.net, rate:+v.rate, bon:+v.bon, mal:+v.mal, pay:+v.pay, ltv:+v.ltv, ltvNet:+v.ltv_net, profit:+v.profit, pps:+v.pps, currentPeriod:v.current_period, wallet_address:v.wallet_address, last_paid_amount:v.last_paid_amount!=null?+v.last_paid_amount:0, last_paid_date:v.last_paid_date, total_paid:v.total_paid!=null?+v.total_paid:0, history:[], periods:[] }; }
 function vaToDb(v){ return { name:v.name, cat:v.cat||'Autre', subs:v.subs||0, ca:v.ca||0, net:v.net||0, rate:(v.rate!=null?v.rate:0.5), bon:v.bon||0, mal:v.mal||0, pay:v.pay||0, ltv:v.ltv||0, ltv_net:v.ltvNet||0, profit:v.profit||0, pps:v.pps||0, current_period:v.currentPeriod||null }; }
 
@@ -3375,7 +3450,8 @@ function getMonthlyRecap() {
     map[key].count++;
     map[key].margin=map[key].net>0?map[key].profit/map[key].net*100:0;
     const epb=e.paidBy||{};
-    ['va','mo','ci','ch'].forEach(k=>{const amt=e[k]||0;if(epb[k]==='associe')map[key].assocAdv+=amt;else map[key].myAdv+=amt;});
+    ['va','mo'].forEach(k=>{const r=avancesLigne(e,k); map[key].myAdv+=r.moi; map[key].assocAdv+=r.asso;});
+    ['ci','ch'].forEach(k=>{const amt=e[k]||0;if(epb[k]==='associe')map[key].assocAdv+=amt;else map[key].myAdv+=amt;});
     (e.alI||[]).forEach(ai=>{if(ai.paidBy==='associe')map[key].assocAdv+=(ai.val||0);else map[key].myAdv+=(ai.val||0);});
   });
   return Object.values(map).sort((a,b) => b.key.localeCompare(a.key));
@@ -3658,7 +3734,7 @@ function se() {
   // quoi que ce soit, impossible de deviner. Ce qu'on sait : de l'argent n'a
   // jamais 3 décimales. On REFUSE au lieu de deviner (voir `lireMontant`).
   {
-    const ids = ['ib','itg','iv','im','ici','ich'].concat(
+    const ids = ['ib','itg','ici','ich'].concat(
       (typeof afs !== 'undefined' ? afs : []).map(function(i){ return 'av-'+i; }));
     const souci = verifierMontants(ids);
     if(souci){ flashMsg('se-msg','⚠ '+souci.replace(/\*\*/g,''),'#f87171'); return; }
@@ -3666,14 +3742,18 @@ function se() {
   const br=gv('ib'); if(!br){flashMsg('se-msg','⚠ Entre au moins un CA Brut','#f87171');const _ib=document.getElementById('ib');if(_ib)_ib.focus();return;}
   const wasEdit=!!_editingId;
   const _oldK={vpr:_kpiNum('vpr'),vb:_kpiNum('vb'),vn:_kpiNum('vn')};
-  const va=gv('iv'),mo=gv('im'),ci=gv('ici'),ch=gv('ich');
+  const va=totLP('va'),mo=totLP('mo'),ci=gv('ici'),ch=gv('ich');
   const alI=gai(),alT=alI.reduce((s,i)=>s+i.val,0);
   const dateInput=document.getElementById('entry-date-input')?.value;
   const date=dateInput||acd||ts();
   const profit=Math.round(br*.78-va-mo-ci-ch-alT);
-  const paidBy={va:gpb('pb-iv'),mo:gpb('pb-im'),ci:gpb('pb-ici'),ch:gpb('pb-ich')};
+  const _vaI=itemsLP('va'), _moI=itemsLP('mo');
+  // paidBy reste ecrit pour rester compatible avec tout le code existant :
+  // on y met le payeur MAJORITAIRE des lignes. Le detail fait foi (vaI/moI).
+  const _domin=(l)=>{let m=0,a=0;l.forEach(x=>{if(x.paidBy==='associe')a+=x.val;else m+=x.val;});return a>m?'associe':'moi';};
+  const paidBy={va:_domin(_vaI),mo:_domin(_moI),ci:gpb('pb-ici'),ch:gpb('pb-ich')};
   const notes=document.getElementById('entry-notes')?.value.trim()||'';
-  const entry={date,brut:br,va,mo,ci,ch,alI,alT,profit,paidBy,notes,author:_currentUser};
+  const entry={date,brut:br,va,mo,ci,ch,alI,alT,vaI:_vaI,moI:_moI,profit,paidBy,notes,author:_currentUser};
   const goal=parseFloat(document.getElementById('monthly-goal')?.value)||0;
   const now=ts().slice(0,7);
   const profitBefore=ents.filter(e=>e.date.slice(0,7)===now).reduce((s,e)=>s+e.profit,0);
@@ -3693,7 +3773,7 @@ function se() {
   }
   const profitAfter=ents.filter(e=>e.date.slice(0,7)===now).reduce((s,e)=>s+e.profit,0);
   checkGoalReached(profitBefore, profitAfter, goal);
-  ['ib','iv','im','ici','ich'].forEach(id=>document.getElementById(id).value='');
+  ['ib','ici','ich'].forEach(id=>document.getElementById(id).value='');razLP('va');razLP('mo');
   document.getElementById('entry-date-input').value=ts();
   document.getElementById('edlbl').textContent="Entrée pour aujourd'hui — change la date si besoin";
   document.getElementById('ainps').innerHTML='';afs=[];afc=0;
@@ -3719,7 +3799,7 @@ function cancelEdit(){
   document.getElementById('edit-banner').style.display='none';
   document.getElementById('sbtn-text').textContent='+ Enregistrer cette entrée';
   document.getElementById('entry-date-input').value=ts();
-  ['ib','iv','im','ici','ich'].forEach(id=>document.getElementById(id).value='');
+  ['ib','ici','ich'].forEach(id=>document.getElementById(id).value='');razLP('va');razLP('mo');
   ['pb-iv','pb-im','pb-ici','pb-ich'].forEach(id=>spb(id,'moi'));
   document.getElementById('ainps').innerHTML='';afs=[];afc=0;
   const en=document.getElementById('entry-notes');if(en)en.value='';
@@ -3734,8 +3814,9 @@ window.editEntry = function(idx){
   if(!entry.id){ showSaveStatus('\u26a0 Entr\u00e9e pas encore enregistr\u00e9e \u2014 recharge la page avant de la modifier','#f87171'); return; }
   _editingId=entry.id;
   document.getElementById('ib').value=entry.brut;
-  document.getElementById('iv').value=entry.va;
-  document.getElementById('im').value=entry.mo;
+  const _pbE=entry.paidBy||{};
+  chargeLP('va', entry.vaI, entry.va, _pbE.va);
+  chargeLP('mo', entry.moI, entry.mo, _pbE.mo);
   document.getElementById('ici').value=entry.ci;
   document.getElementById('ich').value=entry.ch;
   document.getElementById('entry-date-input').value=entry.date;
@@ -3756,8 +3837,9 @@ window.duplicateEntry = function(idx){
   const entry=gf()[idx]; if(!entry) return;
   _editingId=null;
   document.getElementById('ib').value=entry.brut;
-  document.getElementById('iv').value=entry.va;
-  document.getElementById('im').value=entry.mo;
+  const _pbE=entry.paidBy||{};
+  chargeLP('va', entry.vaI, entry.va, _pbE.va);
+  chargeLP('mo', entry.moI, entry.mo, _pbE.mo);
   document.getElementById('ici').value=entry.ci;
   document.getElementById('ich').value=entry.ch;
   document.getElementById('entry-date-input').value=ts();
@@ -3905,7 +3987,9 @@ async function quickAddSave(){
   // (qui parcourent alI) l'ignorent : l'avance n'était attribuée à personne et
   // disparaissait de ce que l'associé te doit.
   const alIQ = al>0 ? [{name:'Ajout rapide', val:al, paidBy:'moi'}] : [];
-  const entry={date,brut:br,va,mo,ci:0,ch:0,alI:alIQ,alT:al,profit,paidBy:{va:'moi',mo:'moi'},notes:'[ajout rapide]'};
+  const _vaQ = va>0 ? [{name:'Paiement VA',val:va,paidBy:'moi'}] : [];
+  const _moQ = mo>0 ? [{name:'Paiement Modele',val:mo,paidBy:'moi'}] : [];
+  const entry={date,brut:br,va,mo,ci:0,ch:0,alI:alIQ,alT:al,vaI:_vaQ,moI:_moQ,profit,paidBy:{va:'moi',mo:'moi'},notes:'[ajout rapide]'};
   ents.unshift(entry);
   // ⚠️ « ✓ ENTRÉE AJOUTÉE » S'AFFICHAIT AVANT DE SAVOIR.
   // `saveEntry` et `saveData` partaient SANS être attendus, et le bandeau vert
