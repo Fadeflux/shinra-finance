@@ -949,6 +949,11 @@ const fmtR=v=>'$'+Math.round(Math.abs(v)).toLocaleString('en-US');
 // Version SIGNEE : a utiliser partout ou une valeur peut etre negative (profit, solde,
 // benefice). fmtR() ci-dessus efface le signe, ce qui faisait passer une perte pour un gain.
 const fmtS=v=>(v<0?'-':'')+fmtR(v);
+// Montant AVEC centimes quand il y en a, sans quand il n y en a pas :
+//   300 -> $300   |   17.5 -> $17.50
+// fmtR() arrondit au dollar et affichait 17,50 $ comme 18 $ : inacceptable sur
+// une ligne de detail, ou chaque centime saisi doit se relire tel quel.
+const fmtC=v=>{const a=Math.abs(Number(v)||0); return (Math.round(a*100)%100===0)?fmtR(a):fmt(a);};
 // Échappe le HTML. Sans cela, un nom de dépense contenant par exemple
 // <img src=x onerror="..."> exécutait du code à chaque affichage de l'historique,
 // et un simple « < » (ex : « pub <10$ ») cassait la mise en page.
@@ -2332,7 +2337,7 @@ function uk(){
     // ATTENTION : afficher le total des LIGNES DU FORMULAIRE (totLP), surtout pas
     // les variables va/mo de uk() qui incluent deja les entrees de la periode.
     [['va',totLP('va')],['mo',totLP('mo')]].forEach(([k,t])=>{
-      const el=document.getElementById('tot-'+k); if(el) el.textContent = t>0 ? fmtR(t) : '—';
+      const el=document.getElementById('tot-'+k); if(el) el.textContent = t>0 ? fmtC(t) : '—';
       const dl=document.getElementById(k+'-names');
       if(dl){ const vus={}; (ents||[]).forEach(e=>((k==='va'?e.vaI:e.moI)||[]).forEach(x=>{const n=String(x.name||'').trim(); if(n) vus[n]=(vus[n]||0)+1;}));
         dl.innerHTML=Object.keys(vus).sort((a,b)=>vus[b]-vus[a]).slice(0,40).map(n=>'<option value="'+esc(n)+'"></option>').join(''); }
@@ -2456,7 +2461,7 @@ function rh(){
     const alMoi=alL.filter(x=>(x.paidBy||'moi')==='moi'), alAsso=alL.filter(x=>x.paidBy==='associe');
     const alMoiT=alMoi.reduce((s,x)=>s+(x.val||0),0), alAssoT=alAsso.reduce((s,x)=>s+(x.val||0),0);
     const alTot=alMoiT+alAssoT;
-    const grp=(ttl,arr,tot,col)=>arr.length?`<div style="flex:1;min-width:150px"><div style="font-size:10px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;display:flex;justify-content:space-between"><span>${ttl}</span><span>${fmtR(tot)}</span></div>${arr.slice().sort((a,b)=>(b.val||0)-(a.val||0)).map(x=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:11px;color:#9a9aa0;padding:2px 0;border-bottom:0.5px solid #171719"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</span><b style="color:#ccc;white-space:nowrap">${fmtR(x.val)}</b></div>`).join('')}</div>`:'';
+    const grp=(ttl,arr,tot,col)=>arr.length?`<div style="flex:1;min-width:150px"><div style="font-size:10px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;display:flex;justify-content:space-between"><span>${ttl}</span><span>${fmtR(tot)}</span></div>${arr.slice().sort((a,b)=>(b.val||0)-(a.val||0)).map(x=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:11px;color:#9a9aa0;padding:2px 0;border-bottom:0.5px solid #171719"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</span><b style="color:#ccc;white-space:nowrap">${fmtC(x.val)}</b></div>`).join('')}</div>`:'';
     const miscHtml=alL.length?`<div style="margin-top:6px"><button type="button" onclick="var d=document.getElementById('misc-${ri}');var o=d.style.display==='none';d.style.display=o?'flex':'none';this.querySelector('.cv').textContent=o?'▴':'▾'" style="background:#161619;border:1px solid #26262c;border-radius:7px;padding:5px 11px;color:#aaa;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:8px">🧾 <b style="color:#ddd">${alL.length} dépense${alL.length>1?'s':''} diverse${alL.length>1?'s':''}</b> · <b style="color:#ddd">${fmtR(alTot)}</b>${alMoiT>0?` · <span style="color:#60a5fa">Moi ${fmtR(alMoiT)}</span>`:''}${alAssoT>0?` · <span style="color:#e879f9">Asso ${fmtR(alAssoT)}</span>`:''} <span class="cv" style="color:#666;font-size:10px">▾</span></button><div id="misc-${ri}" style="display:none;gap:22px;flex-wrap:wrap;background:#0e0e0f;border:1px solid #1e1e22;border-radius:8px;padding:11px 14px;margin-top:5px">${grp('Payé par Moi',alMoi,alMoiT,'#60a5fa')}${grp('Payé par Associé',alAsso,alAssoT,'#e879f9')}</div></div>`:'';
     const notesHtml=e.notes?`<div style="font-size:10px;color:#555;margin-top:3px;font-style:italic">💬 ${esc(e.notes)}</div>`:'';
     // Detail des versements VA / Modele : affiche des qu il y a 2 lignes ou plus
@@ -2464,7 +2469,7 @@ function rh(){
     const _vers=[['va','VA','#facc15'],['mo','Modèle','#a78bfa']].map(function(t){
       const l=(t[0]==='va'?e.vaI:e.moI)||[];
       if(l.length<2) return '';
-      return '<span style="color:'+t[2]+'">'+t[1]+' :</span> '+l.map(function(x){return esc(x.name)+' '+fmtR(x.val);}).join(' + ');
+      return '<span style="color:'+t[2]+'">'+t[1]+' :</span> '+l.map(function(x){return esc(x.name)+' '+fmtC(x.val);}).join(' + ');
     }).filter(Boolean);
     const versHtml=_vers.length?'<div style="font-size:10.5px;color:#5a5a62;margin-top:3px;line-height:1.6">'+_vers.join(' &nbsp;·&nbsp; ')+'</div>':'';
     return `<div class="txrow"><div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0"><span class="txdb">${dl(e.date)}</span>${e.author?`<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:#1a1a1e;color:#8a8a90;border:0.5px solid #2a2a2a;margin-left:4px">${e.author}</span>`:''}<div><div style="font-size:13px;color:#bbb">CA ${fmtR(e.brut)}</div><div style="font-size:11px;color:#444;margin-top:2px;line-height:1.7"><span style="color:#facc15">VA ${fmtR(e.va)}${pbTag(e.va,'va')}</span> · <span style="color:#a78bfa">Modèle ${fmtR(e.mo)}${pbTag(e.mo,'mo')}</span> · <span style="color:#22d3ee">Chat IA ${fmtR(e.ci)}${pbTag(e.ci,'ci')}</span> · <span style="color:#fb923c">Chat Hum. ${fmtR(e.ch)}${pbTag(e.ch,'ch')}</span></div>${versHtml}${miscHtml}${notesHtml}</div></div><div style="display:flex;align-items:center;gap:8px"><div style="text-align:right"><div style="font-size:13px;font-weight:500;color:${e.profit>=0?'#4ade80':'#f87171'}">${e.profit>=0?'+':''}${fmtS(e.profit)}</div><div style="font-size:10px;color:#444;margin-top:2px">${mg}% marge</div></div><div class="row-actions"><button onclick="window.quickNote(${ri})" title="${e.notes?'Note (cliquer pour éditer)':'Ajouter une note partagée'}" style="color:${e.notes?'#4ade80':'#444'}">💬</button><button onclick="window.editEntry(${ri})" title="Modifier" style="color:#facc15">✏</button><button onclick="window.duplicateEntry(${ri})" title="Dupliquer" style="color:#60a5fa">⎘</button><button onclick="deleteEntry(${ri})" title="Supprimer" style="color:#444">✕</button></div></div></div>`;
