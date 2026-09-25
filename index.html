@@ -173,10 +173,26 @@ select.ifield{cursor:pointer}
   .tabs{gap:4px}
   .tab{padding:6px 10px;font-size:11px}
   .dash-title{font-size:16px}
-  #save-status,button[onclick="saveData()"],button[onclick="exportData()"],button[onclick="exportVACSV()"],label[style*="Import"]{display:none}
-  .kpi-value{font-size:14px}
+  /* #save-status N EST PLUS masque : il porte les alertes « NON SAUVEGARDE ».
+     Il devient un bandeau fixe en bas d ecran, toujours visible. */
+  button[onclick="saveData()"],button[onclick="exportData()"],button[onclick="exportVACSV()"]{display:none}
+  #save-status{position:fixed;left:8px;right:8px;bottom:8px;z-index:9999;text-align:center;
+    background:#15151a;border:1px solid #2c2c34;border-radius:10px;padding:9px 12px;
+    font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.55)}
+  /* Selecteurs explicites : .kpi-value seul etait battu par .kpi-hero-grid .kpi-value */
+  .kpi-value{font-size:15px}
+  .kpi-hero-grid .kpi{padding:13px 14px;min-height:96px}
+  .kpi-hero-grid .kpi-value{font-size:20px}
+  .kpi-hero-grid .kpi.kpi-hero .kpi-value{font-size:30px}
+  .kpi-dep-grid .kpi-value{font-size:16px}
+  .kpi-label{text-overflow:ellipsis}
   .vacard{padding:10px}
   .brow{flex-wrap:wrap}
+  /* Ligne de versement : le libelle prend toute la largeur, puis
+     date + montant + payeur + suppression tiennent sur la 2e ligne. */
+  .arow{flex-wrap:wrap;row-gap:6px}
+  .arow > input[type=text]{flex:1 1 100%;min-width:0;order:-1}
+  .lp-date{width:112px}
   input[type=date]{font-size:11px;padding:5px 6px}
   .ifield{font-size:12px}
   .sbtn{font-size:12px;padding:8px}
