@@ -1398,14 +1398,21 @@ let editLog=[];
 // ─── Thème ───────────────────────────────────────────────────────
 function toggleTheme(){
   const isLight=document.body.classList.toggle('light');
-  localStorage.setItem('crm_theme',isLight?'light':'dark');
+  // ⚠️ (25/09) TOUS LES SITES fadeflux.github.io PARTAGENT UN SEUL STOCKAGE
+  // (meme origine). Cette page gardait sept cles en `crm_*`, les memes que le CRM
+  // d'agence ET que la page finance de l'autre agence : le nom de la personne qui
+  // saisit (tamponne sur chaque entree), le role, le mode lecture seule, l'onglet et
+  // le theme passaient d'un site a l'autre. Prefixe `fin_shinra_`, comme les donnees
+  // de cette page. (Pas `ccs_` : c'est le prefixe du centre de controle, qui a deja
+  // son propre `ccs_token`.) Rien n'est repris des anciennes cles.
+  localStorage.setItem('fin_shinra_theme',isLight?'light':'dark');
   const btn=document.getElementById('theme-btn');
   const meta=document.getElementById('theme-color-meta');
   if(btn)btn.textContent=isLight?'☀️':'🌙';
   if(meta)meta.content=isLight?'#f0f0f0':'#0a0a0a';
 }
 function loadTheme(){
-  const t=localStorage.getItem('crm_theme');
+  const t=localStorage.getItem('fin_shinra_theme');
   if(t==='light'){document.body.classList.add('light');const btn=document.getElementById('theme-btn');if(btn)btn.textContent='☀️';}
 }
 
@@ -1416,7 +1423,7 @@ function selectRole(role,btn){
   if(btn)btn.classList.add('active');
 }
 function applyRoleUI(){
-  _role=localStorage.getItem('crm_role')||'owner';
+  _role=localStorage.getItem('fin_shinra_role')||'owner';
   const badge=document.getElementById('role-badge');
   if(_role==='assoc'){
     if(badge){badge.style.display='inline-flex';badge.textContent='🤝 Associé';badge.style.background='#221a2d';badge.style.color='#e879f9';badge.style.border='0.5px solid #e879f9';}
@@ -1971,7 +1978,7 @@ function glvl(v,s){if(v.pps<0)return'mauvais';const t=s[Math.floor(s.length*.3)]
 function grco(p){if(p>200)return{c:'rgar',l:'GARDER'};if(p>0)return{c:'rsur',l:'SURVEILLER'};return{c:'rvir',l:'VIRER'};}
 function gcpct(pay,ca){return ca?pay/ca*100:null;}
 function gcls(p){if(p<30)return'cg';if(p<=50)return'cy';return'cr';}
-function sw(t,b){document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById('page-'+t).classList.add('active');try{localStorage.setItem('crm_tab',t);}catch(e){}window.scrollTo(0,0);}
+function sw(t,b){document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById('page-'+t).classList.add('active');try{localStorage.setItem('fin_shinra_tab',t);}catch(e){}window.scrollTo(0,0);}
 function ts(){return new Date().toISOString().split('T')[0];}
 function dl(s){return new Date(s+'T00:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});}
 function setRange(){
@@ -3471,8 +3478,8 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 // champ d'identifiant qui nommait les comptes, retiré des tableaux de bord le 12/09.
 // Il vit maintenant dans le navigateur : demandé une fois, retenu ensuite.
 // Rien n'est plus publié, et l'usage quotidien ne change pas.
-function mailRetenu(){ try{ return localStorage.getItem('crm_mail') || ''; }catch(e){ return ''; } }
-function retenirMail(m){ try{ localStorage.setItem('crm_mail', m); }catch(e){} }
+function mailRetenu(){ try{ return localStorage.getItem('fin_shinra_mail') || ''; }catch(e){ return ''; } }
+function retenirMail(m){ try{ localStorage.setItem('fin_shinra_mail', m); }catch(e){} }
 // Garde CDN : si cdn.jsdelivr est bloque (bloqueur de pub, coupure, panne), window.supabase
 // est absent. Sans cette garde, l exception ici stoppait TOUT le script racine :
 // window.editEntry / duplicateEntry / deleteEntry / addVA n etaient jamais definis et
@@ -3493,7 +3500,7 @@ function vaToDb(v){ return { name:v.name, cat:v.cat||'Autre', subs:v.subs||0, ca
 
 let _apiConnected = false;
 
-function getToken() { return localStorage.getItem('crm_token') || ''; }
+function getToken() { return localStorage.getItem('fin_shinra_token') || ''; }
 
 async function doLogin() {
   const val = document.getElementById('login-input').value.trim();
@@ -3521,7 +3528,7 @@ async function doLogin() {
     return;
   }
   retenirMail(_mail);   // connexion reussie : on retient l'adresse pour la suite
-  localStorage.setItem('crm_role', 'owner');
+  localStorage.setItem('fin_shinra_role', 'owner');
   document.getElementById('login-error').textContent = '';
   document.getElementById('login-overlay').style.display = 'none';
   applyRoleUI();
@@ -3530,7 +3537,7 @@ async function doLogin() {
 
 async function doLogout() {
   try { await sb.auth.signOut(); } catch (e) {}
-  localStorage.removeItem('crm_token');
+  localStorage.removeItem('fin_shinra_token');
   location.reload();
 }
 
@@ -3834,7 +3841,7 @@ function flashMsg(id, msg, color='#4ade80') {
 // Restaure le dernier onglet ouvert (mémorisé par sw())
 function restoreTab() {
   try {
-    const t = localStorage.getItem('crm_tab');
+    const t = localStorage.getItem('fin_shinra_tab');
     if (!t || t === 'ca') return;
     const btn = document.querySelector(`.tab[onclick*="sw('${t}'"]`);
     if (btn) btn.click();
@@ -4126,9 +4133,9 @@ function importData(e) {
 
 // ── Hooks sur les actions ──
 const _origSe = se;
-var _currentUser=localStorage.getItem('crm_user')||'Moi';
+var _currentUser=localStorage.getItem('fin_shinra_user')||'Moi';
 function setUser(u){
-  _currentUser=u;try{localStorage.setItem('crm_user',u);}catch(e){}
+  _currentUser=u;try{localStorage.setItem('fin_shinra_user',u);}catch(e){}
   var m=document.getElementById('ut-moi'),a=document.getElementById('ut-asso');
   if(m&&a){var on=u==='Moi'?m:a,off=u==='Moi'?a:m;on.style.background='var(--acc)';on.style.color='var(--acc-ink)';off.style.background='transparent';off.style.color='#888';}
 }
@@ -4535,15 +4542,15 @@ loadTheme();
 (function(){
   var p = new URLSearchParams(location.search).get('ro');
   try{
-    if (p === '0') localStorage.removeItem('crm_ro');
-    else if (p === '1') localStorage.setItem('crm_ro', '1');
+    if (p === '0') localStorage.removeItem('fin_shinra_ro');
+    else if (p === '1') localStorage.setItem('fin_shinra_ro', '1');
   }catch(e){}
   var actif = (p === '1');
   if (p !== '0') {
     // Le stockage peut etre refuse (navigation privee, reglages) : on lit
     // dans un try, et l'absence de reponse ne vaut PAS « ecriture permise »
     // si le parametre, lui, est la.
-    try{ actif = actif || localStorage.getItem('crm_ro') === '1'; }catch(e){}
+    try{ actif = actif || localStorage.getItem('fin_shinra_ro') === '1'; }catch(e){}
   }
   if (actif) document.body.classList.add('readonly');
 })();
@@ -4562,7 +4569,7 @@ if('serviceWorker' in navigator){
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
-      localStorage.setItem('crm_role', 'owner');
+      localStorage.setItem('fin_shinra_role', 'owner');
       document.getElementById('login-overlay').style.display = 'none';
       applyRoleUI();
       await loadData();

@@ -23,7 +23,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PAGE = process.argv[2] || path.join(__dirname, 'index.html');
-const SRC = fs.readFileSync(PAGE, 'utf8');
+const SRC = fs.readFileSync(PAGE, 'utf8').replace(/\r\n/g, '\n');
 
 let ko = 0;
 function V(titre, cond, detail = '') {
@@ -112,6 +112,21 @@ function morceau(debut, fin) {
       await sauver();
       V('la liste fusionnée est redessinée (sinon les ✕ visent de mauvaises lignes)', dessins >= 1, dessins + ' dessin(s)');
     }
+  }
+
+  console.log('\n-- 5. aucune cle de stockage partagee avec un AUTRE site --');
+  {
+    // ⚠️ Tous les sites fadeflux.github.io partagent UN SEUL localStorage (meme
+    // origine). Le 25/09, sept cles `crm_*` de cette page etaient communes au CRM
+    // d'agence ET a la page finance de l'autre agence — dont le nom de la personne
+    // qui saisit, tamponne sur chaque entree, et le mode lecture seule.
+    // Pas de prefixe `ccs_` ici : c'est celui du centre de controle, qui a deja son
+    // propre `ccs_token`.
+    const cles = [...new Set((SRC.match(/localStorage\.[a-zA-Z]+Item\(\s*'[^']+'/g) || [])
+      .map((m) => m.replace(/.*'([^']+)'.*/, '$1')))];
+    V('des cles de stockage sont bien trouvees', cles.length > 0, String(cles.length));
+    const etrangeres = cles.filter((c) => !/^(fin_shinra_|sb-)/.test(c));
+    V('toutes les cles portent le prefixe de CE site', etrangeres.length === 0, etrangeres.join(', '));
   }
 
   console.log('\n' + (ko ? ko + ' ECHEC(S)' : 'TOUT PASSE') + '\n');

@@ -15,7 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const SRC = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+const SRC = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').replace(/\r\n/g, '\n');
 const CLE = 'ccs_mail';
 
 let ko = 0;

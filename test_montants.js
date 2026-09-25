@@ -24,7 +24,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CIBLE = process.argv[2] || path.join(__dirname, 'index.html');
-const SRC = fs.readFileSync(CIBLE, 'utf8');
+const SRC = fs.readFileSync(CIBLE, 'utf8').replace(/\r\n/g, '\n');
 
 function extraire(nom) {
   for (const tete of ['async function ' + nom + '(', 'function ' + nom + '(',

@@ -20,7 +20,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const SRC = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+const SRC = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').replace(/\r\n/g, '\n');
 
 let ko = 0;
 function V(titre, cond, detail = '') {

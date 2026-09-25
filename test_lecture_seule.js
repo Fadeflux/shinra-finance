@@ -32,7 +32,7 @@ const path = require('path');
 // Un chemin en argument permet de rejouer ce banc sur une ANCIENNE version du
 // fichier et de verifier qu'il y echoue bien (sinon il ne prouverait rien).
 const CIBLE = process.argv[2] || path.join(__dirname, 'index.html');
-const SRC = fs.readFileSync(CIBLE, 'utf8');
+const SRC = fs.readFileSync(CIBLE, 'utf8').replace(/\r\n/g, '\n');
 
 /** Decoupe une fonction du fichier source par equilibrage des accolades. */
 function extraire(nom) {

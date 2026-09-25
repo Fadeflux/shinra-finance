@@ -17,7 +17,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const SRC = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+const SRC = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').replace(/\r\n/g, '\n');
 
 let ko = 0;
 function V(titre, cond, detail = '') {
@@ -53,15 +53,15 @@ console.log('\n-- le paramètre allume le mode, et le RETIENT --');
 {
   const r = jouer('?ro=1', {});
   V('`?ro=1` allume la lecture seule', r.lectureSeule === true);
-  V('... et il est retenu dans le navigateur', r.sac.ccs_ro === '1', JSON.stringify(r.sac));
+  V('... et il est retenu dans le navigateur', r.sac.fin_shinra_ro === '1', JSON.stringify(r.sac));
 }
 
 console.log('\n-- effacer le paramètre ne suffit plus --');
 {
   // LE contrôle qui compte : c'est exactement le contournement d'avant.
-  const r = jouer('', { ccs_ro: '1' });
+  const r = jouer('', { fin_shinra_ro: '1' });
   V('sans paramètre, le mode retenu s’applique quand même', r.lectureSeule === true);
-  const r2 = jouer('?autre=1', { ccs_ro: '1' });
+  const r2 = jouer('?autre=1', { fin_shinra_ro: '1' });
   V('un autre paramètre ne l’efface pas non plus', r2.lectureSeule === true);
 }
 
@@ -69,9 +69,9 @@ console.log('\n-- on peut en sortir volontairement --');
 {
   // Sinon l'opérateur qui ouvre une fois un lien `?ro=1` resterait coincé dans
   // son propre outil — un garde qui enferme celui qu'il protège est une panne.
-  const r = jouer('?ro=0', { ccs_ro: '1' });
+  const r = jouer('?ro=0', { fin_shinra_ro: '1' });
   V('`?ro=0` rend l’écriture', r.lectureSeule === false);
-  V('... et oublie le mode pour la suite', r.sac.ccs_ro === undefined, JSON.stringify(r.sac));
+  V('... et oublie le mode pour la suite', r.sac.fin_shinra_ro === undefined, JSON.stringify(r.sac));
 }
 
 console.log('\n-- rien ne tombe si le stockage est refusé --');
